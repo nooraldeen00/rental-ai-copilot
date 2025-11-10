@@ -1,0 +1,58 @@
+CREATE TABLE IF NOT EXISTS inventory (
+  sku VARCHAR(32) PRIMARY KEY,
+  name VARCHAR(128) NOT NULL,
+  location VARCHAR(64) NOT NULL,
+  on_hand INT NOT NULL,
+  committed INT NOT NULL DEFAULT 0,
+  attributes JSON
+);
+
+CREATE TABLE IF NOT EXISTS rates (
+  sku VARCHAR(32) PRIMARY KEY,
+  daily DECIMAL(8,2) NOT NULL,
+  weekly DECIMAL(8,2) NOT NULL,
+  monthly DECIMAL(8,2) NOT NULL,
+  damage_waiver_pct DECIMAL(5,2) NOT NULL,
+  delivery_fee_base DECIMAL(8,2) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS customers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(128) NOT NULL,
+  tier ENUM('A','B','C') DEFAULT 'C',
+  default_location VARCHAR(64)
+);
+
+CREATE TABLE IF NOT EXISTS policies (
+  key_name VARCHAR(64) PRIMARY KEY,
+  value_json JSON NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS runs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  input_text TEXT,
+  seed INT,
+  status VARCHAR(32),
+  cost_usd DECIMAL(10,4),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS steps (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  run_id BIGINT,
+  kind VARCHAR(64),
+  input_json JSON,
+  output_json JSON,
+  latency_ms INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS feedback (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  run_id BIGINT,
+  rating INT,
+  note TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE
+);

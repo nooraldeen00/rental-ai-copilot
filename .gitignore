@@ -1,0 +1,10 @@
+# .gitignore
+__pycache__/
+.env
+.env.*
+*.sqlite
+.vscode/
+.idea/
+*.pyc
+dist/
+node_modules/

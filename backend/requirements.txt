@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pydantic
+SQLAlchemy>=2.0
+pymysql
+python-dotenv
+openai
+faiss-cpu
+numpy
+python-multipart
