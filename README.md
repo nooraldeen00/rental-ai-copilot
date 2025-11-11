@@ -42,12 +42,16 @@ Instead of “an AI chat,” this is an AI employee — a virtual quoting assist
 
 * Python 3.11+
 
-FastAPI
+* FastAPI
 
-SQLAlchemy + MySQL
+* SQLAlchemy + MySQL
 
-OpenAI SDK (LLM logic)
+* OpenAI SDK (LLM logic)
 
-Pydantic for schemas
+* Pydantic for schemas
+
+## Core endpoint:
+POST /quote/run
+
 
 
