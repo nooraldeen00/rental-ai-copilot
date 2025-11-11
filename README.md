@@ -51,7 +51,8 @@ Instead of “an AI chat,” this is an AI employee — a virtual quoting assist
 * Pydantic for schemas
 
 ## Core endpoint:
+'''
 POST /quote/run
-
+'''
 
 
