@@ -51,12 +51,6 @@ Instead of “an AI chat,” this is an AI employee — a virtual quoting assist
 * Pydantic for schemas
 
 ## Core endpoint:
-'''
-POST /quote/run
-'''
-
 ```
-function test() {
-  console.log("notice the blank line before this function?");
-}
+POST /quote/run
 ```
