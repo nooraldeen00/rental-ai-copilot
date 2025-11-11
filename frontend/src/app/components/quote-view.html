@@ -1,0 +1,32 @@
+<div *ngIf="quote">
+  <h3>Draft Quote</h3>
+  <table border="1" cellspacing="0" cellpadding="6">
+    <thead>
+      <tr><th>SKU</th><th>Name</th><th>Qty</th><th>Line Total</th></tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let li of quote.line_items">
+        <td>{{li.sku}}</td>
+        <td>{{li.name}}</td>
+        <td>{{li.qty}}</td>
+        <td>{{li.total | currency}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:8px;">
+    <strong>Fees/Adjustments:</strong>
+    <ul>
+      <li *ngFor="let f of quote.fees">{{f.rule}}: {{f.amount | currency}}</li>
+    </ul>
+  </div>
+
+  <div style="margin-top:8px;">
+    <strong>Subtotal:</strong> {{quote.subtotal | currency}}
+  </div>
+
+  <div *ngIf="quote.notes?.length" style="margin-top:8px;">
+    <strong>Notes:</strong>
+    <ul><li *ngFor="let n of quote.notes">{{n}}</li></ul>
+  </div>
+</div>

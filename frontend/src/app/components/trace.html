@@ -1,0 +1,9 @@
+<div *ngIf="items?.length; else empty">
+  <div *ngFor="let s of items" style="border:1px solid #ddd; padding:8px; margin-bottom:8px;">
+    <strong>{{s.kind}}</strong>
+    <pre style="white-space:pre-wrap;">{{s.output_json}}</pre>
+  </div>
+</div>
+<ng-template #empty>
+  <i>No trace yet.</i>
+</ng-template>

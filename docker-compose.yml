@@ -1,13 +1,50 @@
 version: "3.9"
+
 services:
   db:
-    image: mysql:8
+    image: mysql:8.0
+    container_name: por_db
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: por
       MYSQL_USER: por
       MYSQL_PASSWORD: por
-    ports: ["3306:3306"]
+      TZ: America/Chicago
+    ports:
+      - "3306:3306"                       # expose locally (optional for dev)
     volumes:
-      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/1_schema.sql
-      - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/2_seed.sql
+      - dbdata:/var/lib/mysql             # persistent data
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: por_api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://por:por@db:3306/por
+      LLM_PROVIDER: openai
+      LLM_MODEL: gpt-4o-mini
+      # inject your key via shell env or .env file (compose supports it):
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TZ: America/Chicago
+    ports:
+      - "8000:8000"
+    command: uvicorn backend.app:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    # If you want live code reload from host, uncomment:
+    # volumes:
+    #   - ./backend:/app
+
+volumes:
+  dbdata:

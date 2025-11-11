@@ -1,0 +1,11 @@
+<p>Paste a renter request below and generate a draft quote.</p>
+
+<app-quote-form (submitted)="onSubmit($event)"></app-quote-form>
+
+<div *ngIf="loading" style="margin-top:16px;">Running…</div>
+<div *ngIf="error" style="color:#b00020;margin-top:12px;">{{ error }}</div>
+
+<div *ngIf="result" style="margin-top:24px;">
+  <a [routerLink]="['/run', result.run_id]">View Run #{{ result.run_id }}</a>
+  <app-quote-view [quote]="result.quote"></app-quote-view>
+</div>

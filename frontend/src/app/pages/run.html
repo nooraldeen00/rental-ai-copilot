@@ -1,0 +1,25 @@
+<h2>Run #{{ runId }}</h2>
+
+<div *ngIf="quote">
+  <app-quote-view [quote]="quote"></app-quote-view>
+</div>
+
+<div style="margin-top:16px;">
+  <h3>Feedback</h3>
+  <label>Rating (1–5):</label>
+  <input type="number" min="1" max="5" [(ngModel)]="rating" />
+  <br />
+  <label>Note:</label>
+  <textarea rows="2" style="width:100%;"
+            [(ngModel)]="note"
+            placeholder="e.g., switch to LED towers, add fuel service"></textarea>
+  <br />
+  <button (click)="improve()">Improve</button>
+</div>
+
+<div style="margin-top:24px;">
+  <h3>Trace</h3>
+  <app-trace [items]="trace"></app-trace>
+</div>
+
+<div *ngIf="error" style="color:#b00020;margin-top:12px;">{{ error }}</div>
