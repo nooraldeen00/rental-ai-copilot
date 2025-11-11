@@ -1,4 +1,4 @@
-# 🚀 Point of Rental — AI Quote Copilot
+# 🚀 Point of Rental - AI Quote Copilot
 <img width="300" height="300" alt="POR" src="https://github.com/user-attachments/assets/74a56f65-3cae-4e79-bbdf-f7630faa02ca" />
 
 
