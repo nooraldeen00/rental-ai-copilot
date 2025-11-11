@@ -54,3 +54,126 @@ Instead of “an AI chat,” this is an AI employee — a virtual quoting assist
 ```
 POST /quote/run
 ```
+#### Example payload:
+```
+{
+  "request_text": "Need 3 scissor lifts for next weekend, Arlington TX",
+  "customer_tier": "B",
+  "location": "Arlington",
+  "zip": "76019",
+  "start_date": "2025-11-14",
+  "end_date": "2025-11-16"
+}
+```
+#### Response:
+```
+{
+  "quote": {
+    "items": [
+      {"name": "Scissor Lift", "qty": 3, "unitPrice": 120.0, "subtotal": 360.0}
+    ],
+    "fees": [{"name": "Delivery", "price": 50.0}],
+    "total": 410.0,
+    "currency": "$",
+    "notes": ["Based on weekend rates for Tier B"]
+  }
+}
+```
+# 💻 Frontend Overview
+
+## Stack:
+
+Angular 17 (Standalone Components)
+
+TailwindCSS 4 (POR-branded color palette)
+
+TypeScript + RxJS
+
+## Features:
+
+Input form for rental request
+
+Auto-validation (dates, tier, zip, etc.)
+
+Live result card: subtotal, tax, total, and AI notes
+
+Reset + rerun controls
+
+Glassmorphism + dark mode styling
+
+# 🐳 Running Locally (Docker)
+
+Everything is containerized for fast setup.
+```
+# clone repo
+git clone https://github.com/nooraldeen00/point-of-rental-quote-copilot
+cd point-of-rental-quote-copilot
+
+# build + run full stack
+docker-compose up --build
+
+```
+
+Frontend: http://localhost:4200
+
+Backend API: http://localhost:8000/docs
+
+MySQL: localhost:3306 (preconfigured volume + .env vars)
+
+#### To stop everything:
+```
+docker-compose down
+```
+
+# 📊 Data Layer (MySQL)
+
+Every quote request and AI output can be logged into MySQL for:
+
+* Auditing
+
+* Analytics (quote patterns, common requests, turnaround time)
+
+* Model training (fine-tuning POR-specific agent behavior)
+
+Example table structure:
+```
+quotes
+ ├─ id
+ ├─ request_text
+ ├─ parsed_items
+ ├─ total
+ ├─ created_at
+ └─ feedback_status
+```
+This makes the project not just functional - but scalable into a data asset.
+
+# 🧬 Why This Aligns with POR’s Future
+| Impact Area    | Benefit                                                      |
+| -------------- | ------------------------------------------------------------ |
+| CSR Efficiency | Handles quote prep in seconds.                               |
+| Accuracy       | Standardized pricing logic and policies.                     |
+| Training Data  | Every quote becomes new supervised data for next-gen POR AI. |
+| Integration    | Easily connects to POR API or database.                      |
+| Brand          | POR becomes a leader in AI-powered rental intelligence.      |
+
+# 🏁 The Takeaway
+
+#### This isn’t a demo — it’s a blueprint for how Point of Rental can embed AI directly into its daily operations.
+
+It’s HumanLayer thinking applied to a real business domain -
+an AI that doesn’t just talk - it works.
+
+### Built clean. Built fast. Built for Point of Rental Software. ⚡
+
+# 🙌 Shout-Out
+
+Big shout-out to HumanLayer and Dex Horthy for pioneering the concept of agentic automation - inspiring this build.
+
+Their work showed that AI agents don’t just chat - they can work like humans inside real businesses.
+This project brings that same philosophy into the rental industry, showing what’s possible when we bridge AI reasoning with real-world operations.
+
+# 💬 Contact
+#### Developer: Nooraldeen Alsmady
+#### Role: CS Senior @ UTA • AI + Systems Engineering
+#### Email: [nooraldeenalsmady@gmail.com]
+#### LinkedIn: https://www.linkedin.com/in/nooraldeen-alsmady-0765a9378
