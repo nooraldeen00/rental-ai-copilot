@@ -16,3 +16,11 @@ That’s what this project proves:
 A HumanLayer-style AI Operator, trained for the rental domain, that handles the first 80% of quote generation before a human even touches it.
 
 POR could deploy this as an internal Copilot - directly augmenting your existing workflow.
+
+# ⚙️ System Architecture
+| Layer                | Tech Stack              | Purpose                                                                                                                                 |
+| -------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend**         | Angular 17 + Tailwind 4 | Clean, modern UI matching POR branding. Built with glass panels, live state updates, and an intuitive form layout.                      |
+| **Backend**          | FastAPI (Python)        | Core logic: takes free-text requests, runs through the LLM agent pipeline, applies pricing rules, and returns structured quote objects. |
+| **Database**         | MySQL / MariaDB         | Stores all runs, quotes, and logs — creating a **data lake** for AI model improvement and auditability.                                 |
+| **Containerization** | Docker + Docker Compose | Fully containerized for easy local dev, team onboarding, or deployment to POR cloud environments.                                       |
