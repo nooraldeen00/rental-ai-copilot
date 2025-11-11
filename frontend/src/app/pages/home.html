@@ -1,11 +1,95 @@
-<p>Paste a renter request below and generate a draft quote.</p>
+<div class="container-app">
+  <!-- Header -->
+  <header class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Quote Copilot</h1>
+      <p class="text-sm text-white/60">Paste a renter request below and generate a draft quote.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="status-dot"></span>
+      <span class="badge">Live</span>
+    </div>
+  </header>
 
-<app-quote-form (submitted)="onSubmit($event)"></app-quote-form>
+  <!-- Body -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Left: Form -->
+    <section class="card">
+      <app-quote-form (submitted)="onSubmit($event)"></app-quote-form>
+      <div class="flex items-center gap-3 pt-3" *ngIf="loading">
+        <span class="spinner"></span>
+        <span class="text-sm text-white/80">Running…</span>
+      </div>
+      <div class="alert-error mt-3" *ngIf="!loading && error">{{ error }}</div>
+    </section>
 
-<div *ngIf="loading" style="margin-top:16px;">Running…</div>
-<div *ngIf="error" style="color:#b00020;margin-top:12px;">{{ error }}</div>
+    <!-- Right: Results -->
+    <section class="card">
+      <!-- Empty -->
+      <div class="empty" *ngIf="!loading && !error && !result">
+        <div class="mx-auto mb-3 h-10 w-10 rounded-full bg-white/8 grid place-items-center">
+          <span class="font-semibold text-white/90">i</span>
+        </div>
+        <p class="text-sm">Run a quote to see results here.</p>
+      </div>
 
-<div *ngIf="result" style="margin-top:24px;">
-  <a [routerLink]="['/run', result.run_id]">View Run #{{ result.run_id }}</a>
-  <app-quote-view [quote]="result.quote"></app-quote-view>
+      <!-- Loading skeleton -->
+      <div class="space-y-3" *ngIf="loading">
+        <div class="skeleton h-6 w-40"></div>
+        <div class="skeleton h-32 w-full"></div>
+        <div class="skeleton h-5 w-2/3"></div>
+      </div>
+
+      <!-- Error (mirrored here too, in case you navigate directly) -->
+      <div class="alert-error" *ngIf="!loading && error">{{ error }}</div>
+
+      <!-- Result -->
+      <div class="space-y-5" *ngIf="!loading && !error && result">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold">Quote Summary</h2>
+            <p class="text-xs text-white/60" *ngIf="result?.quote?.completedAt">
+              Completed: {{ result.quote.completedAt }}
+            </p>
+          </div>
+
+          <a class="btn-ghost btn-sm" [routerLink]="['/run', result.run_id]">
+            View Run #{{ result.run_id }}
+          </a>
+        </div>
+
+        <div class="overflow-hidden rounded-xl border border-white/10">
+          <table class="table">
+            <thead class="bg-white/5">
+              <tr>
+                <th class="text-left">Item</th>
+                <th class="text-center">Qty</th>
+                <th class="text-right">Unit</th>
+                <th class="text-right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let it of result?.quote?.items || []" class="border-t border-white/10">
+                <td>{{ it.name }}</td>
+                <td class="text-center">{{ it.qty }}</td>
+                <td class="text-right">
+                  {{ result?.quote?.currency || '$' }}{{ it.unitPrice | number:'1.2-2' }}
+                </td>
+                <td class="text-right font-medium">
+                  {{ result?.quote?.currency || '$' }}{{ it.subtotal | number:'1.2-2' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div *ngIf="result?.quote?.notes?.length" class="space-y-2">
+          <h3 class="text-sm font-semibold text-white/90">AI Notes</h3>
+          <ul class="list-disc ml-5 text-sm text-white/85">
+            <li *ngFor="let n of result.quote.notes">{{ n }}</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
 </div>

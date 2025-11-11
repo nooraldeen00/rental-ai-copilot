@@ -1,8 +1,10 @@
+// src/app/app.routes.ts
 import { Routes } from '@angular/router';
 import { HomeComponent } from './pages/home';
-import { Run } from './pages/run';  // <-- change this
+import { RunPage } from './pages/run';
 
 export const routes: Routes = [
-  { path: '', component: HomeComponent },
-  { path: 'run/:id', component: Run }, // <-- and this
+  { path: '', component: HomeComponent },   // default = form page
+  { path: 'run/:id', component: RunPage },  // detail page
+  { path: '**', redirectTo: '' },
 ];

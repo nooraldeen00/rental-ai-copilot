@@ -1,43 +1,88 @@
+// frontend/src/app/pages/run.ts
 import { Component } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { ApiService } from '../services/api';
-import { QuoteViewComponent } from '../components/quote-view';
-import { TraceComponent } from '../components/trace';
 import { FormsModule } from '@angular/forms';
-import { NgIf } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
+import { ApiService, QuoteRequest, QuoteRunResponse } from '../services/api';
+
+type Tier = 'A' | 'B' | 'C';
+
+interface RunForm {
+  request_text: string;
+  customer_tier: Tier;
+  location?: string;
+  seed?: number | null;
+  start_date?: string;
+  end_date?: string;
+  zip?: string;
+}
 
 @Component({
   selector: 'app-run',
   standalone: true,
-  imports: [QuoteViewComponent, TraceComponent, FormsModule, NgIf],
+  imports: [CommonModule, FormsModule, DecimalPipe],
   templateUrl: './run.html',
-  styleUrl: './run.css',
 })
-export class Run {
-  runId!: number;
-  quote: any = null;
-  trace: any[] = [];
-  rating = 3;
-  note = '';
-  error = '';
+export class RunPage {
+  form: RunForm = {
+    request_text: '',
+    customer_tier: 'B',
+    location: '',
+    seed: null,
+    start_date: '',
+    end_date: '',
+    zip: '',
+  };
 
-  constructor(private route: ActivatedRoute, private api: ApiService) {}
+  loading = false;
+  error: string | null = null;
+  result: QuoteRunResponse | null = null;
 
-  ngOnInit() {
-    this.runId = Number(this.route.snapshot.paramMap.get('id'));
-    this.api.getRun(this.runId).subscribe({
-      next: (res) => {
-        this.quote = res.quote;
-        this.trace = res.trace || [];
+  constructor(private api: ApiService) {}
+
+  // alias used by the template
+  get model() { return this.form; }
+  onRun() { this.onGenerateQuote(); }
+  reset() { this.onClear(); }
+
+  onGenerateQuote() {
+    this.loading = true;
+    this.error = null;
+    this.result = null;
+
+    const payload: QuoteRequest = {
+      request_text: this.form.request_text,
+      customer_tier: this.form.customer_tier,
+      location: this.form.location || '',
+      zip: this.form.zip,
+      start_date: this.form.start_date,
+      end_date: this.form.end_date,
+      seed: this.form.seed ?? undefined,
+    };
+
+    this.api.runQuote(payload).subscribe({
+      next: (res: QuoteRunResponse) => {
+        this.result = res;
+        this.loading = false;
       },
-      error: () => this.error = 'Unable to load run.'
+      error: (err: unknown) => {
+        console.error(err);
+        this.error = 'Failed to run quote';
+        this.loading = false;
+      },
     });
   }
 
-  improve() {
-    this.api.sendFeedback(this.runId, this.rating, this.note).subscribe({
-      next: (res) => { this.quote = res.quote; },
-      error: () => this.error = 'Feedback failed.'
-    });
+  onClear() {
+    this.form = {
+      request_text: '',
+      customer_tier: 'B',
+      location: '',
+      seed: null,
+      start_date: '',
+      end_date: '',
+      zip: '',
+    };
+    this.error = null;
+    this.result = null;
   }
 }
