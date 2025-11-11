@@ -4,7 +4,9 @@ pydantic
 SQLAlchemy>=2.0
 pymysql
 python-dotenv
+python-dateutil
 openai
 faiss-cpu
 numpy
 python-multipart
+cryptography

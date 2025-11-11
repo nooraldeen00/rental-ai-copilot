@@ -1,18 +1,25 @@
-INSERT INTO inventory (sku,name,location,on_hand,committed,attributes) VALUES
-('LT-LED','LED Light Tower','Dallas',12,2,JSON_OBJECT('watts', '1000W', 'fuel', 'diesel')),
-('GEN-20K','Generator 20kW','Dallas',6,1,JSON_OBJECT('phase','single','fuel','diesel')),
-('SS-70','Skid Steer 70HP','Austin',3,0,JSON_OBJECT('bucket','standard'));
+-- INVENTORY ---------------------------------------------------------
+INSERT INTO inventory (sku, name, location, on_hand, committed, attributes) VALUES
+('CHAIR-FOLD', 'Plastic Folding Chair - White', 'Plano, TX', 500, 0, JSON_OBJECT('type','chair','color','white')),
+('TENT-20x20', 'Tent 20x20 (High Peak)', 'Dallas, TX', 12, 0, JSON_OBJECT('type','tent','dimensions','20x20')),
+('TABLE-8FT', '8ft Banquet Table', 'Plano, TX', 120, 0, JSON_OBJECT('type','table','length','8ft'))
+ON DUPLICATE KEY UPDATE name = VALUES(name);
 
-INSERT INTO rates (sku,daily,weekly,monthly,damage_waiver_pct,delivery_fee_base) VALUES
-('LT-LED', 95.00, 500.00, 1700.00, 10.00, 85.00),
-('GEN-20K',180.00, 900.00, 3000.00, 12.00,120.00),
-('SS-70', 250.00,1200.00, 3800.00, 10.00,160.00);
+-- RATES --------------------------------------------------------------
+INSERT INTO rates (sku, daily, weekly, monthly, damage_waiver_pct, delivery_fee_base) VALUES
+('CHAIR-FOLD', 1.50, 7.00, 20.00, 10.00, 25.00),
+('TENT-20x20', 150.00, 700.00, 2000.00, 10.00, 120.00),
+('TABLE-8FT', 10.00, 45.00, 120.00, 10.00, 25.00)
+ON DUPLICATE KEY UPDATE daily = VALUES(daily);
 
-INSERT INTO customers (name,tier,default_location) VALUES
-('Acme Builders','B','Dallas'),
-('Sunrise Events','A','Austin');
+-- CUSTOMERS ---------------------------------------------------------
+INSERT INTO customers (name, tier, default_location) VALUES
+('Walk-In Customer', 'C', 'Plano, TX'),
+('VIP Client', 'A', 'Dallas, TX')
+ON DUPLICATE KEY UPDATE tier = VALUES(tier);
 
-INSERT INTO policies (key_name,value_json) VALUES
-('weekend_delivery', JSON_OBJECT('surcharge', 75)),
-('min_rental_days',  JSON_OBJECT('default', 1, 'SS-70', 2)),
-('damage_waiver',    JSON_OBJECT('default_pct', 0.10, 'tier_overrides', JSON_OBJECT('A', 0.05, 'B', 0.08, 'C', 0.10)));
+-- POLICIES ----------------------------------------------------------
+INSERT INTO policies (key_name, value_json) VALUES
+('tax_rate', JSON_OBJECT('pct', 8.25)),
+('default_damage_waiver', JSON_OBJECT('pct', 10.0))
+ON DUPLICATE KEY UPDATE value_json = VALUES(value_json);
