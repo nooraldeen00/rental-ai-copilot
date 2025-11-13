@@ -81,14 +81,20 @@ def start_run(input_text: str, seed: Optional[int]) -> int:
 
             # Absolute fallback for SQLite
             with SessionLocal() as s2:
-                row = s2.execute(text("SELECT last_insert_rowid() AS id")).mappings().first()
+                row = (
+                    s2.execute(text("SELECT last_insert_rowid() AS id"))
+                    .mappings()
+                    .first()
+                )
                 if row and "id" in row:
                     return int(row["id"])
 
     raise RuntimeError("Failed to create run id")
 
 
-def add_step(run_id: int, kind: str, input_json: Any, output_json: Any, duration_ms: int) -> None:
+def add_step(
+    run_id: int, kind: str, input_json: Any, output_json: Any, duration_ms: int
+) -> None:
     """
     Append a step to the steps table. Stores valid JSON in input_json/output_json.
     Table expected: steps(id PK, run_id INT, kind TEXT, input_json TEXT, output_json TEXT, duration_ms INT, created_at ...)

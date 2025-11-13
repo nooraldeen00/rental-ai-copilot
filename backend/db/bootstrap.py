@@ -44,23 +44,32 @@ CREATE TABLE IF NOT EXISTS rates (
 """
 
 SEED = [
-    ("INSERT INTO policies (key_name, value_json) VALUES "
-     "('default_damage_waiver', JSON_OBJECT('pct', 8.0)) "
-     "ON DUPLICATE KEY UPDATE value_json=VALUES(value_json);"),
-    ("INSERT INTO policies (key_name, value_json) VALUES "
-     "('tax_rate', JSON_OBJECT('pct', 8.25)) "
-     "ON DUPLICATE KEY UPDATE value_json=VALUES(value_json);"),
-    ("INSERT INTO inventory (sku, name) VALUES "
-     "('CHAIR-FOLD','Folding Chair (White)'),"
-     "('TENT-20x20','Tent 20x20'),"
-     "('TABLE-8FT','8ft Banquet Table') "
-     "ON DUPLICATE KEY UPDATE name=VALUES(name);"),
-    ("INSERT INTO rates (sku, daily, delivery_fee_base) VALUES "
-     "('CHAIR-FOLD', 2.00, 25.00),"
-     "('TENT-20x20', 150.00, 120.00),"
-     "('TABLE-8FT', 10.00, 30.00) "
-     "ON DUPLICATE KEY UPDATE daily=VALUES(daily), delivery_fee_base=VALUES(delivery_fee_base);"),
+    (
+        "INSERT INTO policies (key_name, value_json) VALUES "
+        "('default_damage_waiver', JSON_OBJECT('pct', 8.0)) "
+        "ON DUPLICATE KEY UPDATE value_json=VALUES(value_json);"
+    ),
+    (
+        "INSERT INTO policies (key_name, value_json) VALUES "
+        "('tax_rate', JSON_OBJECT('pct', 8.25)) "
+        "ON DUPLICATE KEY UPDATE value_json=VALUES(value_json);"
+    ),
+    (
+        "INSERT INTO inventory (sku, name) VALUES "
+        "('CHAIR-FOLD','Folding Chair (White)'),"
+        "('TENT-20x20','Tent 20x20'),"
+        "('TABLE-8FT','8ft Banquet Table') "
+        "ON DUPLICATE KEY UPDATE name=VALUES(name);"
+    ),
+    (
+        "INSERT INTO rates (sku, daily, delivery_fee_base) VALUES "
+        "('CHAIR-FOLD', 2.00, 25.00),"
+        "('TENT-20x20', 150.00, 120.00),"
+        "('TABLE-8FT', 10.00, 30.00) "
+        "ON DUPLICATE KEY UPDATE daily=VALUES(daily), delivery_fee_base=VALUES(delivery_fee_base);"
+    ),
 ]
+
 
 def bootstrap():
     with SessionLocal() as s:
@@ -72,6 +81,7 @@ def bootstrap():
         for stmt in SEED:
             s.execute(text(stmt))
         s.commit()
+
 
 if __name__ == "__main__":
     bootstrap()

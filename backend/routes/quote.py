@@ -18,6 +18,7 @@ router = APIRouter(prefix="/quote", tags=["quote"])
 
 # ---------- Request Models (local to keep imports light) ----------
 
+
 class FeedbackIn(BaseModel):
     run_id: int
     rating: int = Field(..., ge=1, le=5)
@@ -25,6 +26,7 @@ class FeedbackIn(BaseModel):
 
 
 # ---------- Routes ----------
+
 
 @router.post("/run")
 def run_quote(req: QuoteRunPayload) -> Dict[str, Any]:
@@ -52,7 +54,9 @@ def run_quote(req: QuoteRunPayload) -> Dict[str, Any]:
     }
 
     try:
-        out = run_quote_loop(run_id, payload)  # agent will add its own steps via add_step()
+        out = run_quote_loop(
+            run_id, payload
+        )  # agent will add its own steps via add_step()
     except Exception as e:
         # record failure and surface a clear error
         add_step(run_id, "error", {"payload": payload}, {"error": str(e)}, 0)
@@ -71,20 +75,28 @@ def feedback(inb: FeedbackIn) -> Dict[str, Any]:
     We DO NOT modify 'subtotal' or recompute 'tax' here; we only reduce 'total'.
     """
     with SessionLocal() as s:
-        step = s.execute(
-            text("""
+        step = (
+            s.execute(
+                text(
+                    """
                 SELECT output_json
                 FROM steps
                 WHERE run_id = :rid
                   AND kind IN ('policy_guardrails','feedback_apply')
                 ORDER BY id DESC
                 LIMIT 1
-            """),
-            {"rid": inb.run_id},
-        ).mappings().first()
+            """
+                ),
+                {"rid": inb.run_id},
+            )
+            .mappings()
+            .first()
+        )
 
         if not step:
-            raise HTTPException(status_code=404, detail="Run not found or not completed")
+            raise HTTPException(
+                status_code=404, detail="Run not found or not completed"
+            )
 
         raw = step["output_json"]
         quote = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
@@ -95,7 +107,9 @@ def feedback(inb: FeedbackIn) -> Dict[str, Any]:
             total = float(quote.get("total", 0.0))
             fees: List[Dict[str, Any]] = list(quote.get("fees", []))
         except Exception:
-            raise HTTPException(status_code=500, detail="Malformed quote payload in last step")
+            raise HTTPException(
+                status_code=500, detail="Malformed quote payload in last step"
+            )
 
         if inb.rating <= 3 and subtotal > 0:
             discount = round(subtotal * 0.10, 2)
@@ -130,15 +144,21 @@ def get_run(run_id: int) -> Dict[str, Any]:
     Inspect a run's step history (useful for debugging).
     """
     with SessionLocal() as s:
-        rows = s.execute(
-            text("""
+        rows = (
+            s.execute(
+                text(
+                    """
                 SELECT id, kind, input_json, output_json, duration_ms
                 FROM steps
                 WHERE run_id = :rid
                 ORDER BY id
-            """),
-            {"rid": run_id},
-        ).mappings().all()
+            """
+                ),
+                {"rid": run_id},
+            )
+            .mappings()
+            .all()
+        )
 
         # Convert output_json/input_json to objects when they are strings (SQLite/MySQL raw)
         steps: List[Dict[str, Any]] = []

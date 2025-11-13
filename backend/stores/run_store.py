@@ -4,13 +4,15 @@ from dataclasses import dataclass, field
 import itertools
 import time
 
+
 @dataclass
 class Run:
     id: int
     created_at: float
     input: Dict[str, Any]
-    steps: list = field(default_factory=list)   # list of {"kind": str, "payload": any}
+    steps: list = field(default_factory=list)  # list of {"kind": str, "payload": any}
     latest_quote: Dict[str, Any] | None = None
+
 
 class RunStore:
     def __init__(self) -> None:
@@ -28,5 +30,6 @@ class RunStore:
 
     def update(self, run: Run) -> None:
         self._runs[run.id] = run
+
 
 STORE = RunStore()

@@ -5,14 +5,18 @@ import csv
 
 DEFAULT_UNIT_PRICE = 100.0
 
+
 class CatalogStore:
     """
     Very small CSV-backed catalog.
     Columns expected: sku,name,unit_price
     """
+
     def __init__(self, csv_path: Optional[str] = None) -> None:
         # Default to data/catalog.csv at repo root
-        root = Path(__file__).resolve().parents[2]  # go from backend/stores -> repo root
+        root = (
+            Path(__file__).resolve().parents[2]
+        )  # go from backend/stores -> repo root
         self._csv_path = Path(csv_path) if csv_path else (root / "data" / "catalog.csv")
         self._by_sku: Dict[str, Dict] = {}
         self._by_name: Dict[str, Dict] = {}
@@ -58,5 +62,6 @@ class CatalogStore:
                 return rec["unit_price"]
         # Default
         return DEFAULT_UNIT_PRICE
+
 
 CATALOG = CatalogStore()

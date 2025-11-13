@@ -18,10 +18,14 @@ SKU_MAP = {
     "tables": "TABLE-8FT",
 }
 
+
 def _now_ms() -> int:
     return int(time.time() * 1000)
 
-def _duration_days(start_s: str | None, end_s: str | None, fallback_days: int = 3) -> int:
+
+def _duration_days(
+    start_s: str | None, end_s: str | None, fallback_days: int = 3
+) -> int:
     try:
         if not start_s or not end_s:
             return fallback_days
@@ -30,6 +34,7 @@ def _duration_days(start_s: str | None, end_s: str | None, fallback_days: int = 
         return max(1, (end - start).days + 1)
     except Exception:
         return fallback_days
+
 
 def _infer_from_message(msg: str) -> Dict[str, Any]:
     items: List[Dict[str, Any]] = []
@@ -42,9 +47,14 @@ def _infer_from_message(msg: str) -> Dict[str, Any]:
     zip_m = re.search(r"\b(\d{5})\b", msg)
     return {"items": items, "zip": zip_m.group(1) if zip_m else None}
 
+
 def _fetch_policies() -> Dict[str, Any]:
     with SessionLocal() as s:
-        rows = s.execute(text("SELECT key_name, value_json FROM policies")).mappings().all()
+        rows = (
+            s.execute(text("SELECT key_name, value_json FROM policies"))
+            .mappings()
+            .all()
+        )
         out = {}
         for r in rows:
             val = r["value_json"]
@@ -56,19 +66,32 @@ def _fetch_policies() -> Dict[str, Any]:
             out[r["key_name"]] = val
         return out
 
+
 def _fetch_rate_for_sku(sku: str) -> Dict[str, Any]:
     with SessionLocal() as s:
-        r = s.execute(text("SELECT * FROM rates WHERE sku=:sku"), {"sku": sku}).mappings().first()
+        r = (
+            s.execute(text("SELECT * FROM rates WHERE sku=:sku"), {"sku": sku})
+            .mappings()
+            .first()
+        )
         if not r:
             raise ValueError(f"rate not found for {sku}")
         return dict(r)
 
+
 def _fetch_name_for_sku(sku: str) -> str:
     with SessionLocal() as s:
-        r = s.execute(text("SELECT name FROM inventory WHERE sku=:sku"), {"sku": sku}).mappings().first()
+        r = (
+            s.execute(text("SELECT name FROM inventory WHERE sku=:sku"), {"sku": sku})
+            .mappings()
+            .first()
+        )
         return r["name"] if r else sku
 
-def _compute(items: List[Dict[str, Any]], days: int, policies: Dict[str, Any]) -> Dict[str, Any]:
+
+def _compute(
+    items: List[Dict[str, Any]], days: int, policies: Dict[str, Any]
+) -> Dict[str, Any]:
     line_items = []
     subtotal = 0.0
     max_delivery = 0.0
@@ -83,13 +106,15 @@ def _compute(items: List[Dict[str, Any]], days: int, policies: Dict[str, Any]) -
         extended = round(unit * qty, 2)
         max_delivery = max(max_delivery, float(rate["delivery_fee_base"]))
 
-        line_items.append({
-            "sku": sku,
-            "name": name,
-            "quantity": qty,
-            "unit_price": round(unit, 2),
-            "extended": extended,
-        })
+        line_items.append(
+            {
+                "sku": sku,
+                "name": name,
+                "quantity": qty,
+                "unit_price": round(unit, 2),
+                "extended": extended,
+            }
+        )
         subtotal += extended
 
     subtotal = round(subtotal, 2)
@@ -121,6 +146,7 @@ def _compute(items: List[Dict[str, Any]], days: int, policies: Dict[str, Any]) -
         "days": days,
     }
 
+
 def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Entry point expected by routes/quote.py"""
     t0 = _now_ms()
@@ -135,8 +161,16 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     if not items:
         items = [{"sku": "CHAIR-FOLD", "quantity": 100}]  # fallback demo
 
-    days = _duration_days(payload.get("start_date"), payload.get("end_date"), fallback_days=3)
-    add_step(run_id, "normalize", {"in": payload}, {"items": items, "days": days}, _now_ms() - t0)
+    days = _duration_days(
+        payload.get("start_date"), payload.get("end_date"), fallback_days=3
+    )
+    add_step(
+        run_id,
+        "normalize",
+        {"in": payload},
+        {"items": items, "days": days},
+        _now_ms() - t0,
+    )
 
     # 2) policies
     t1 = _now_ms()

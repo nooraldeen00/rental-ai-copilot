@@ -9,6 +9,7 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 
 SAFE_KINDS = ("feedback_apply", "policy_guardrails")
 
+
 def _to_json(obj: Any) -> Any:
     """Coerce DB value to JSON safely."""
     if obj is None:
@@ -32,45 +33,60 @@ def _to_json(obj: Any) -> Any:
     # anything else → not JSON
     return {}
 
+
 @router.get("/{run_id}")
 def get_run(run_id: int):
     with SessionLocal() as s:
         # 1) fetch full trace (ordered)
-        steps = s.execute(
-            text("""
+        steps = (
+            s.execute(
+                text(
+                    """
                 SELECT id, kind, output_json
                 FROM steps
                 WHERE run_id = :rid
                 ORDER BY id ASC
-            """),
-            {"rid": run_id},
-        ).mappings().all()
+            """
+                ),
+                {"rid": run_id},
+            )
+            .mappings()
+            .all()
+        )
 
         if not steps:
             raise HTTPException(status_code=404, detail="No steps for run")
 
         # 2) fetch latest "quote-like" payload directly in SQL (fast path)
-        latest_row = s.execute(
-            text("""
+        latest_row = (
+            s.execute(
+                text(
+                    """
                 SELECT output_json
                 FROM steps
                 WHERE run_id = :rid
                   AND kind IN :kinds
                 ORDER BY id DESC
                 LIMIT 1
-            """),
-            {"rid": run_id, "kinds": SAFE_KINDS},
-        ).mappings().first()
+            """
+                ),
+                {"rid": run_id, "kinds": SAFE_KINDS},
+            )
+            .mappings()
+            .first()
+        )
 
         latest_json = _to_json(latest_row["output_json"]) if latest_row else {}
 
         # 3) serialize the trace with safe JSON too (nice for UI)
         trace: List[Dict[str, Any]] = []
         for st in steps:
-            trace.append({
-                "id": st["id"],
-                "kind": st["kind"],
-                "output": _to_json(st["output_json"]),
-            })
+            trace.append(
+                {
+                    "id": st["id"],
+                    "kind": st["kind"],
+                    "output": _to_json(st["output_json"]),
+                }
+            )
 
         return {"quote": latest_json, "trace": trace}

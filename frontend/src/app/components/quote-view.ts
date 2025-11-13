@@ -10,5 +10,13 @@ import { NgIf, NgFor, DecimalPipe } from '@angular/common';
   styleUrl: './quote-view.css'
 })
 export class QuoteViewComponent {
-  @Input() quote: any;          // the object you pass in: result.quote
+
+  // Whether the backend is still generating
+  @Input() loading: boolean | null = null;
+
+  // The full run response object returned by the API (result)
+  @Input() result: any = null;
+
+  // Error message, if any
+  @Input() error: string | null = null;
 }

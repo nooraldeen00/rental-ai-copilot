@@ -1,95 +1,166 @@
-<div class="container-app">
+<div class="mx-auto max-w-6xl px-4 py-8">
   <!-- Header -->
-  <header class="flex items-center justify-between">
+  <header class="flex items-center justify-between mb-8">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Quote Copilot</h1>
-      <p class="text-sm text-white/60">Paste a renter request below and generate a draft quote.</p>
+      <h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-white">
+        Point of Rental AI Quote Copilot
+      </h1>
+      <p class="text-sm text-white/70 mt-2">
+        Paste a renter request and let the AI build a draft quote like a CSR.
+      </p>
     </div>
-    <div class="flex items-center gap-2">
-      <span class="status-dot"></span>
-      <span class="badge">Live</span>
-    </div>
+    <span class="badge mt-4 md:mt-0">BETA</span>
   </header>
 
-  <!-- Body -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Left: Form -->
-    <section class="card">
-      <app-quote-form (submitted)="onSubmit($event)"></app-quote-form>
-      <div class="flex items-center gap-3 pt-3" *ngIf="loading">
-        <span class="spinner"></span>
-        <span class="text-sm text-white/80">Running…</span>
+  <!-- Grid: form + summary -->
+  <main class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Left: form -->
+    <section class="md:col-span-2 glass p-5 md:p-6 space-y-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-white">Create Draft Quote</h2>
+        <span class="text-xs text-white/60">Paste a renter request or fill fields</span>
       </div>
-      <div class="alert-error mt-3" *ngIf="!loading && error">{{ error }}</div>
+
+      <!-- Request -->
+      <label class="block">
+        <span class="text-sm font-medium text-white/80">Request</span>
+        <textarea
+          rows="4"
+          class="input mt-1"
+          placeholder="Need 2 light towers in Dallas Fri–Sun"
+          [(ngModel)]="form.request_text"
+        ></textarea>
+      </label>
+
+      <!-- Tier / Location / Seed -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <label>
+          <span class="text-sm font-medium text-white/80">Tier</span>
+          <select class="input mt-1" [(ngModel)]="form.customer_tier">
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+          </select>
+        </label>
+
+        <label class="md:col-span-2">
+          <span class="text-sm font-medium text-white/80">Location</span>
+          <input
+            class="input mt-1"
+            placeholder="Dallas"
+            [(ngModel)]="form.location"
+          />
+        </label>
+
+        <label>
+          <span class="text-sm font-medium text-white/80">Seed</span>
+          <input
+            class="input mt-1"
+            placeholder="optional"
+            [(ngModel)]="form.seed"
+          />
+        </label>
+      </div>
+
+      <!-- Dates + ZIP -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <label>
+          <span class="text-sm font-medium text-white/80">Start</span>
+          <input
+            type="date"
+            class="input mt-1"
+            [(ngModel)]="form.start_date"
+          />
+        </label>
+
+        <label>
+          <span class="text-sm font-medium text-white/80">End</span>
+          <input
+            type="date"
+            class="input mt-1"
+            [(ngModel)]="form.end_date"
+          />
+        </label>
+
+        <label>
+          <span class="text-sm font-medium text-white/80">ZIP</span>
+          <input
+            class="input mt-1"
+            placeholder="75201"
+            [(ngModel)]="form.zip"
+          />
+        </label>
+      </div>
+
+      <!-- Buttons + status -->
+      <div class="flex items-center gap-3 pt-1">
+        <button class="btn-primary" (click)="onSubmit()">
+          Generate Quote
+        </button>
+        <button class="btn-ghost" (click)="onClear()">
+          Clear
+        </button>
+
+        <span *ngIf="loading" class="text-sm text-white/70 flex items-center gap-2">
+          <span class="inline-block h-4 w-4 rounded-full border-2 border-white/30 border-t-transparent animate-spin"></span>
+          Running…
+        </span>
+      </div>
+
+      <p *ngIf="error" class="text-sm text-red-300">
+        {{ error }}
+      </p>
     </section>
 
-    <!-- Right: Results -->
-    <section class="card">
-      <!-- Empty -->
-      <div class="empty" *ngIf="!loading && !error && !result">
-        <div class="mx-auto mb-3 h-10 w-10 rounded-full bg-white/8 grid place-items-center">
-          <span class="font-semibold text-white/90">i</span>
-        </div>
-        <p class="text-sm">Run a quote to see results here.</p>
-      </div>
+    <!-- Right: summary -->
+    <aside class="glass p-5 md:p-6 space-y-4">
+      <h3 class="text-lg font-semibold text-white">Quote Summary</h3>
 
-      <!-- Loading skeleton -->
-      <div class="space-y-3" *ngIf="loading">
-        <div class="skeleton h-6 w-40"></div>
-        <div class="skeleton h-32 w-full"></div>
-        <div class="skeleton h-5 w-2/3"></div>
+      <!-- Empty state -->
+      <div *ngIf="!loading && !error && !result" class="text-sm text-white/60">
+        Run a quote to see totals, items, and AI notes.
       </div>
-
-      <!-- Error (mirrored here too, in case you navigate directly) -->
-      <div class="alert-error" *ngIf="!loading && error">{{ error }}</div>
 
       <!-- Result -->
-      <div class="space-y-5" *ngIf="!loading && !error && result">
+      <div *ngIf="!loading && !error && result" class="space-y-4 text-sm text-white/80">
         <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-lg font-semibold">Quote Summary</h2>
-            <p class="text-xs text-white/60" *ngIf="result?.quote?.completedAt">
-              Completed: {{ result.quote.completedAt }}
-            </p>
-          </div>
-
-          <a class="btn-ghost btn-sm" [routerLink]="['/run', result.run_id]">
-            View Run #{{ result.run_id }}
-          </a>
+          <span>Total</span>
+          <span class="text-xl font-semibold">
+            {{ result?.quote?.currency || '$' }}{{ result?.quote?.total || 0 | number:'1.0-2' }}
+          </span>
         </div>
 
-        <div class="overflow-hidden rounded-xl border border-white/10">
-          <table class="table">
-            <thead class="bg-white/5">
-              <tr>
-                <th class="text-left">Item</th>
-                <th class="text-center">Qty</th>
-                <th class="text-right">Unit</th>
-                <th class="text-right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let it of result?.quote?.items || []" class="border-t border-white/10">
-                <td>{{ it.name }}</td>
-                <td class="text-center">{{ it.qty }}</td>
-                <td class="text-right">
-                  {{ result?.quote?.currency || '$' }}{{ it.unitPrice | number:'1.2-2' }}
-                </td>
-                <td class="text-right font-medium">
-                  {{ result?.quote?.currency || '$' }}{{ it.subtotal | number:'1.2-2' }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div *ngIf="result?.quote?.items?.length">
+          <p class="text-xs text-white/60 mb-1">Items</p>
+          <ul class="space-y-1">
+            <li *ngFor="let it of result.quote.items" class="flex justify-between">
+              <span>{{ it.name }} × {{ it.qty }}</span>
+              <span>
+                {{ result?.quote?.currency || '$' }}{{ it.subtotal | number:'1.0-2' }}
+              </span>
+            </li>
+          </ul>
         </div>
 
-        <div *ngIf="result?.quote?.notes?.length" class="space-y-2">
-          <h3 class="text-sm font-semibold text-white/90">AI Notes</h3>
-          <ul class="list-disc ml-5 text-sm text-white/85">
-            <li *ngFor="let n of result.quote.notes">{{ n }}</li>
+        <div *ngIf="result?.quote?.notes?.length">
+          <p class="text-xs text-white/60 mb-1">AI Notes</p>
+          <ul class="list-disc ml-4 space-y-1">
+            <li *ngFor="let n of result.quote.notes">
+              {{ n }}
+            </li>
           </ul>
         </div>
       </div>
-    </section>
-  </div>
+
+      <!-- How it works -->
+      <div class="border-t border-white/10 pt-4 mt-2 text-xs text-white/60">
+        <p class="font-semibold mb-1">How it works</p>
+        <ul class="list-disc ml-4 space-y-1">
+          <li>Normalize message → infer items</li>
+          <li>Apply tier policies &amp; rates</li>
+          <li>Compute fees, tax, and total</li>
+        </ul>
+      </div>
+    </aside>
+  </main>
 </div>

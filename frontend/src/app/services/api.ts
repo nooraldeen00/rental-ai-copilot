@@ -30,6 +30,8 @@ export interface QuoteRunResponse {
     items?: QuoteItem[];
     notes?: string[];
   };
+  // Added so the template `result.completedAt` is valid
+  completedAt?: string; // e.g. "2025-11-13T18:05:58Z" or formatted string
 }
 
 // IMPORTANT: your forwarded 8000 url

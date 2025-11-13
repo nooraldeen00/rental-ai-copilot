@@ -23,7 +23,7 @@ services:
 
   api:
     build:
-      context: .                # build from repo root
+      context: .
       dockerfile: backend/Dockerfile
     container_name: por_api
     depends_on:
