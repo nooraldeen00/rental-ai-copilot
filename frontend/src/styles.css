@@ -1,42 +1,116 @@
+/* Google Font */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
+/* Tailwind */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Font */
-:root { --font-sans: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+:root {
+  --font-sans: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
 
-html, body {
+html,
+body {
   height: 100%;
-  background: radial-gradient(1200px 800px at 20% -10%, rgba(0,166,81,.25), transparent),
-              radial-gradient(900px 600px at 110% 10%, rgba(0,166,81,.18), transparent),
-              #0b0d12;
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(1200px 800px at 20% -10%, rgba(0, 166, 81, 0.25), transparent),
+    radial-gradient(900px 600px at 110% 10%, rgba(0, 166, 81, 0.18), transparent),
+    #0b0d12;
   color: #e7eef5;
   font-family: var(--font-sans);
 }
 
-/* Reusable “glass” card */
 .glass {
-  @apply rounded-2xl border border-white/10 bg-white/5 shadow-soft;
+  @apply rounded-2xl border border-white/10 bg-white/5 shadow-soft backdrop-blur-md;
 }
 
-/* Inputs */
 .input {
-  @apply w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 outline-none
-         focus:ring-2 focus:ring-por-400/40 placeholder:text-white/40;
+  @apply w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-white
+         outline-none focus:ring-2 focus:ring-por-400/40 placeholder:text-white/40;
 }
 
-/* Buttons */
 .btn-primary {
   @apply inline-flex items-center justify-center rounded-xl px-5 py-2.5 font-medium
-         bg-por-500 hover:bg-por-400 active:bg-por-600 transition;
+         bg-por-500 hover:bg-por-400 active:bg-por-600 text-white transition;
 }
+
 .btn-ghost {
   @apply inline-flex items-center justify-center rounded-xl px-5 py-2.5 font-medium
-         border border-white/10 hover:bg-white/5 transition;
+         border border-white/10 text-white hover:bg-white/5 transition;
 }
+
 .badge {
   @apply text-[11px] px-2 py-0.5 rounded-md bg-por-500/15 text-por-300 border border-por-500/25;
 }
 
+.shadow-soft {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.container-app {
+  @apply min-h-screen px-4 py-6 sm:px-6 lg:px-10 flex flex-col gap-6 text-white;
+}
+
+.card {
+  @apply bg-white/5 rounded-2xl border border-white/10 p-5 sm:p-6 lg:p-7 shadow-soft backdrop-blur-md;
+}
+
+.label {
+  @apply text-sm font-medium text-white/80;
+}
+
+.input,
+.select,
+.textarea {
+  @apply w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2.5 text-sm text-slate-50
+         placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-por-400 focus:border-transparent;
+}
+
+.textarea {
+  @apply min-h-[100px] resize-y;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-xl bg-por-500 px-4 py-2.5 text-sm font-semibold
+         text-white shadow-soft hover:bg-por-400 disabled:opacity-60 disabled:cursor-not-allowed;
+}
+
+.btn-ghost {
+  @apply inline-flex items-center justify-center rounded-xl bg-white/5 px-4 py-2.5 text-sm font-semibold
+         text-slate-100 border border-white/10 hover:bg-white/10;
+}
+
+.status-dot {
+  @apply h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.35)];
+}
+
+.badge {
+  @apply text-xs font-semibold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40;
+}
+
+.empty {
+  @apply flex flex-col items-center justify-center text-center text-white/70 min-h-[160px];
+}
+
+.skeleton {
+  @apply bg-white/10 rounded-lg animate-pulse;
+}
+
+.alert-error {
+  @apply text-sm text-red-300 bg-red-900/40 border border-red-500/40 rounded-xl px-3 py-2;
+}
+
+.table {
+  @apply w-full text-sm border-separate border-spacing-0;
+}
+
+.table th,
+.table td {
+  @apply px-3 py-2.5 border-b border-white/10;
+}
+
+.spinner {
+  @apply h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin;
+}
