@@ -6,7 +6,7 @@
 ### Well, now you don’t have to.
 
 Meet AI Quote Copilot - an autonomous quoting system built for Point of Rental, inspired by HumanLayer’s philosophy of agentic automation.
-It reads what customers write, understands it like a human, applies pricing logic, and generates a ready-to-review quote — instantly.
+It reads what customers write, understands it like a human, applies pricing logic, and generates a ready-to-review quote - instantly.
 
 # 🧠 The Vision
 
