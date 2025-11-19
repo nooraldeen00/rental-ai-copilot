@@ -177,5 +177,5 @@ This project brings that same philosophy into the rental industry, showing what�
 # 💬 Contact
 #### Developer: Nooraldeen Alsmady
 #### Role: CS Senior @ UTA • AI + Systems Engineering
-#### Email: [nooraldeenalsmady@gmail.com]
+#### Email: nooraldeenalsmady@gmail.com
 #### LinkedIn: https://www.linkedin.com/in/nooraldeen-alsmady-0765a9378
