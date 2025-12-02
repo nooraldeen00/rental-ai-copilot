@@ -35,7 +35,7 @@ export interface QuoteRunResponse {
 }
 
 // IMPORTANT: your forwarded 8000 url
-const BASE = 'https://psychic-bassoon-x5576x4q667x2w79-8000.app.github.dev';
+const BASE = 'https://glorious-disco-977rvwx4vvp7fx99v-8000.app.github.dev';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {

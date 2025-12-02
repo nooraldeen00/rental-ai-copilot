@@ -30,13 +30,14 @@ export class HomeComponent {
 
   
   onSubmit() {
-    this.loading = true;
-    this.error = '';
+     this.loading = true;
+     this.error = '';
+     this.result = null;
 
     // frontend-only fake data (no backend)
     // comment OUT the API call and uncomment the fake quote if you want:
 
-    
+    /*
     this.result = {
       totals: {
         subtotal: 540,
@@ -53,7 +54,7 @@ export class HomeComponent {
     };
     this.loading = false;
     return;
-    
+    */
 
     //  real backend
     this.api.runQuote(this.form).subscribe({

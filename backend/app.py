@@ -7,7 +7,7 @@ app = FastAPI(title="Point of Rental - Quote Copilot")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200", "http://127.0.0.1:4200"],
+    allow_origins=["http://localhost:4200", "http://127.0.0.1:4200", "https://glorious-disco-977rvwx4vvp7fx99v-4200.app.github.dev"],
     allow_origin_regex=r"https://.*\.app\.github\.dev$",  # for Codespaces
     allow_credentials=True,
     allow_methods=["*"],

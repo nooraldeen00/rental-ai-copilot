@@ -172,141 +172,111 @@
       </form>
     </section>
 
-    <!-- RIGHT: Quote Summary -->
-    <section
-      class="glass bg-white/5 shadow-soft backdrop-blur-sm p-5 sm:p-6 lg:p-7 flex flex-col"
-    >
-      <div class="flex items-center justify-between gap-3 mb-4">
-        <h2 class="text-xl sm:text-2xl font-semibold tracking-tight text-white">
-          Quote Summary
+    <!-- Right column: Live quote result -->
+<section class="mt-8 lg:mt-0 lg:col-span-1">
+  <div class="rounded-2xl bg-black/40 border border-white/10 p-5 shadow-soft">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-100 tracking-wide uppercase">
+          Quote Preview
         </h2>
-        <span class="text-[11px] uppercase tracking-wide text-slate-300">
-          Internal view
-        </span>
+        <p class="text-xs text-slate-300/80">
+          Generated from the renter request in real time.
+        </p>
       </div>
+      <div *ngIf="result" class="text-xs text-slate-300">
+        Run #{{ result.run_id }}
+      </div>
+    </div>
 
-      <!-- If result exists -->
-      <ng-container *ngIf="result as quote; else emptySummary">
-        <!-- Total -->
-        <div class="mb-6 border-b border-white/10 pb-4">
-          <div class="flex items-end justify-between gap-4">
-            <div>
-              <p class="text-xs font-semibold tracking-wide text-slate-300 uppercase">
-                Estimated total
-              </p>
-              <p class="mt-1 text-3xl font-bold text-emerald-300">
-                {{ (quote?.totals?.grand_total || quote?.total) | number:'1.2-2' }}
-              </p>
-            </div>
+    <!-- Empty state -->
+    <div *ngIf="!loading && !result && !error" class="text-center text-slate-300 py-6 text-sm">
+      <div class="mx-auto mb-3 h-9 w-9 rounded-full bg-white/10 grid place-items-center">
+        <span class="font-semibold text-white/90">i</span>
+      </div>
+      <p>Paste a renter request and run a quote to see details here.</p>
+    </div>
 
-            <div class="text-right text-xs text-slate-300">
-              <div>Tier {{ form.customer_tier }}</div>
-              <div *ngIf="form.location">
-                {{ form.location }} • {{ form.zip }}
-              </div>
-            </div>
-          </div>
-        </div>
+    <!-- Loading -->
+    <div *ngIf="loading" class="space-y-3">
+      <div class="h-4 w-32 rounded bg-white/10 animate-pulse"></div>
+      <div class="h-20 w-full rounded bg-white/5 animate-pulse"></div>
+      <div class="h-4 w-2/3 rounded bg-white/10 animate-pulse"></div>
+    </div>
 
-        <!-- Items -->
-        <div *ngIf="quote?.items?.length" class="mb-6">
-          <h3 class="text-xs font-semibold tracking-wide text-slate-300 uppercase mb-2">
-            Items
-          </h3>
-          <div class="space-y-2 text-sm">
-            <div
-              *ngFor="let item of quote.items"
-              class="flex items-baseline justify-between gap-3 border border-white/5 rounded-lg px-3 py-2 bg-black/20"
-            >
-              <div>
-                <p class="font-medium text-slate-50">
-                  {{ item.name || item.description || item.sku }}
-                </p>
-                <p class="text-xs text-slate-300">
-                  {{ item.qty || item.quantity }} ×
-                  {{ (item.rate || item.unit_price) | number:'1.2-2' }}
-                </p>
-              </div>
-              <p class="text-sm font-semibold text-slate-50">
-                {{ (item.total || item.extended_total) | number:'1.2-2' }}
-              </p>
-            </div>
-          </div>
-        </div>
+    <!-- Error -->
+    <div
+      *ngIf="!loading && error"
+      class="mt-2 rounded-xl border border-red-400/50 bg-red-500/10 px-3 py-2 text-xs text-red-100"
+    >
+      {{ error }}
+    </div>
 
-        <!-- Fees & tax -->
-        <div class="mb-6 text-sm space-y-1">
-          <div class="flex justify-between">
-            <span class="text-slate-300">Subtotal</span>
-            <span class="text-slate-50">
-              {{ (quote?.totals?.subtotal || quote?.subtotal) | number:'1.2-2' }}
-            </span>
-          </div>
-
-          <div *ngIf="quote?.totals?.fees?.length">
-            <div
-              *ngFor="let fee of quote.totals.fees"
-              class="flex justify-between text-xs text-slate-300"
-            >
-              <span>{{ fee.name }}</span>
-              <span class="text-slate-50">
-                {{ fee.amount | number:'1.2-2' }}
-              </span>
-            </div>
-          </div>
-
-          <div class="flex justify-between text-sm">
-            <span class="text-slate-300">Tax</span>
-            <span class="text-slate-50">
-              {{ (quote?.totals?.tax || quote?.tax) | number:'1.2-2' }}
-            </span>
-          </div>
-
-          <div class="flex justify-between pt-2 mt-1 border-t border-white/10">
-            <span class="text-slate-200 font-semibold">Total</span>
-            <span class="text-emerald-300 font-semibold">
-              {{ (quote?.totals?.grand_total || quote?.total) | number:'1.2-2' }}
-            </span>
-          </div>
-        </div>
-
-        <!-- AI Notes -->
-        <div *ngIf="quote?.ai_notes || quote?.notes" class="mt-auto">
-          <h3 class="text-xs font-semibold tracking-wide text-slate-300 uppercase mb-2">
-            AI notes for CSR
-          </h3>
-          <p class="text-sm leading-relaxed text-slate-200 whitespace-pre-line">
-            {{ quote?.ai_notes || quote?.notes }}
+    <!-- Real quote -->
+    <div *ngIf="!loading && result && !error" class="space-y-5 mt-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-300 uppercase tracking-wide">Estimated Total</p>
+          <p class="text-2xl font-semibold text-white">
+            {{ result.quote?.currency || '$' }}{{ result.quote?.total || 0 | number:'1.2-2' }}
           </p>
         </div>
-      </ng-container>
-
-      <!-- Empty state -->
-      <ng-template #emptySummary>
-        <div class="mt-1 text-sm text-slate-300">
-          Run a quote to see totals, items, and AI notes.
+        <div class="text-right text-xs text-slate-300">
+          <div>Subtotal: {{ result.quote?.currency || '$' }}{{ result.quote?.subtotal || 0 | number:'1.2-2' }}</div>
+          <div>Tax: {{ result.quote?.currency || '$' }}{{ result.quote?.tax || 0 | number:'1.2-2' }}</div>
         </div>
+      </div>
 
-        <div class="mt-6 pt-4 border-t border-white/10">
-          <h3 class="text-xs font-semibold tracking-wide text-slate-300 uppercase mb-2">
-            How it works
-          </h3>
-          <ul class="text-sm text-slate-200 space-y-1.5">
-            <li class="flex gap-2">
-              <span class="mt-1 h-1.5 w-1.5 rounded-full bg-por-400"></span>
-              <span>Normalize renter message → infer items and quantities.</span>
-            </li>
-            <li class="flex gap-2">
-              <span class="mt-1 h-1.5 w-1.5 rounded-full bg-por-400"></span>
-              <span>Apply tier-based policies and rates for Point of Rental.</span>
-            </li>
-            <li class="flex gap-2">
-              <span class="mt-1 h-1.5 w-1.5 rounded-full bg-por-400"></span>
-              <span>Compute fees, tax, and total so a CSR starts 80% done.</span>
-            </li>
-          </ul>
-        </div>
-      </ng-template>
-    </section>
-  </main>
-</div>
+      <!-- Fees -->
+      <div *ngIf="result.quote?.fees?.length" class="text-xs text-slate-300">
+        <p class="font-semibold mb-1">Fees</p>
+        <ul class="space-y-1">
+          <li *ngFor="let f of result.quote?.fees" class="flex justify-between">
+            <span>{{ f.rule }}</span>
+            <span>
+              {{ result.quote?.currency || '$' }}{{ f.amount | number:'1.2-2' }}
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Line items -->
+      <div *ngIf="result.quote?.items?.length" class="rounded-xl border border-white/10 overflow-hidden">
+        <table class="w-full text-xs text-slate-100">
+          <thead class="bg-white/5 text-slate-300 uppercase tracking-wide">
+            <tr>
+              <th class="px-3 py-2 text-left">Item</th>
+              <th class="px-3 py-2 text-center">Qty</th>
+              <th class="px-3 py-2 text-right">Unit</th>
+              <th class="px-3 py-2 text-right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let it of result.quote?.items" class="border-t border-white/5">
+              <td class="px-3 py-1.5">{{ it.name }}</td>
+              <td class="px-3 py-1.5 text-center">{{ it.qty }}</td>
+              <td class="px-3 py-1.5 text-right">
+                {{ result.quote?.currency || '$' }}{{ it.unitPrice | number:'1.2-2' }}
+              </td>
+              <td class="px-3 py-1.5 text-right font-medium">
+                {{ result.quote?.currency || '$' }}{{ it.subtotal | number:'1.2-2' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- AI Notes -->
+      <div *ngIf="result.quote?.notes?.length" class="space-y-2">
+        <h3 class="text-xs font-semibold text-slate-100 uppercase tracking-wide">
+          AI Notes
+        </h3>
+        <ul class="list-disc ml-5 text-xs text-slate-200 space-y-1">
+          <li *ngFor="let n of result.quote?.notes">
+            {{ n }}
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>

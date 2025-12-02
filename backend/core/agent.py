@@ -146,40 +146,67 @@ def _compute(
         "days": days,
     }
 
+from typing import Dict, Any, List
 
 def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Entry point expected by routes/quote.py"""
-    t0 = _now_ms()
-
-    # 1) normalize
     msg = (payload.get("message") or "").strip()
     inferred = _infer_from_message(msg) if msg else {"items": []}
 
     items = payload.get("items") or []
+    used_inferred = False
+    used_fallback = False
+
     if not items and inferred["items"]:
         items = inferred["items"]
+        used_inferred = True
+
     if not items:
-        items = [{"sku": "CHAIR-FOLD", "quantity": 100}]  # fallback demo
+        # demo / safety fallback so the quote is never empty
+        items = [{"sku": "CHAIR-FOLD", "quantity": 100}]
+        used_fallback = True
 
     days = _duration_days(
         payload.get("start_date"), payload.get("end_date"), fallback_days=3
     )
+
     add_step(
         run_id,
         "normalize",
-        {"in": payload},
+        {"payload": payload},
         {"items": items, "days": days},
-        _now_ms() - t0,
+        0,
     )
 
-    # 2) policies
+    # 2) pricing policies
     t1 = _now_ms()
-    policies = _fetch_policies()
+    policies = _fetch_policies(payload.get("customer_tier") or "C")
     add_step(run_id, "policies", {}, policies, _now_ms() - t1)
 
     # 3) pricing
     t2 = _now_ms()
     quote = _compute(items, days, policies)
+
+    # ---------- build AI-style notes ----------
+    notes: List[str] = []
+
+    if used_inferred:
+        notes.append("Inferred rental items from the renter message.")
+    if used_fallback:
+        notes.append("Applied a default chair package so the quote is never empty.")
+
+    # Note about duration
+    if payload.get("start_date") or payload.get("end_date"):
+        notes.append(f"Assumed {days} rental day(s) based on the provided dates.")
+    else:
+        notes.append(f"Assumed a default rental duration of {days} day(s).")
+
+    # Note about tier
+    tier = payload.get("customer_tier") or "C"
+    notes.append(f"Applied pricing and policies for customer tier {tier}.")
+
+    quote["notes"] = notes
+    # ---------- END NEW NOTES ----------
+
     add_step(run_id, "pricing", {"items": items, "days": days}, quote, _now_ms() - t2)
 
     # 4) guardrails

@@ -15,6 +15,34 @@ from backend.db.connect import SessionLocal
 
 router = APIRouter(prefix="/quote", tags=["quote"])
 
+# ---------- Helper: adapt internal quote → UI shape ----------
+
+def _adapt_quote_for_ui(raw: Dict[str, Any]) -> Dict[str, Any]:
+    line_items = raw.get("line_items", []) or []
+
+    items_ui: List[Dict[str, Any]] = []
+    for li in line_items:
+        items_ui.append(
+            {
+                "sku": li.get("sku"),
+                "name": li.get("name"),
+                "qty": li.get("quantity"),
+                "unitPrice": li.get("unit_price"),
+                "subtotal": li.get("extended"),
+            }
+        )
+
+    return {
+        "currency": raw.get("currency", "$"),
+        "items": items_ui,
+        "subtotal": raw.get("subtotal", 0.0),
+        "tax": raw.get("tax", 0.0),
+        "fees": raw.get("fees", []),
+        "total": raw.get("total", 0.0),
+        # optional human-facing notes if you add them later
+        "notes": raw.get("notes", []),
+    }
+
 
 # ---------- Request Models (local to keep imports light) ----------
 
@@ -63,8 +91,10 @@ def run_quote(req: QuoteRunPayload) -> Dict[str, Any]:
         finish_run(run_id, cost=0.0)
         raise HTTPException(status_code=400, detail=f"quote failed: {e}")
 
+    ui_quote = _adapt_quote_for_ui(out)
     finish_run(run_id, cost=0.0)
-    return {"run_id": run_id, "quote": out}
+    return {"run_id": run_id, "quote": ui_quote}
+
 
 
 @router.post("/feedback")
@@ -118,14 +148,17 @@ def feedback(inb: FeedbackIn) -> Dict[str, Any]:
             quote["fees"] = fees
             quote["total"] = round(total - discount, 2)
 
-            add_step(
-                inb.run_id,
-                "feedback_apply",
-                {"rating": inb.rating, "note": inb.note},
-                quote,
-                0,
-            )
-            return {"run_id": inb.run_id, "quote": quote}
+            ui_quote = _adapt_quote_for_ui(quote)
+
+        add_step(
+            inb.run_id,
+            "feedback_apply",
+            {"rating": inb.rating, "note": inb.note},
+            ui_quote,
+            0,
+        )
+        finish_run(inb.run_id, 0.0)
+        return {"run_id": inb.run_id, "quote": ui_quote}
 
         # No discount applied; still record the feedback
         add_step(
