@@ -42,27 +42,38 @@ export class ApiService {
   constructor(private http: HttpClient) {}
 
   runQuote(req: QuoteRequest): Observable<QuoteRunResponse> {
-    const payload: any = { ...req };
+  // Map frontend model to backend payload
+  const payload: any = {
+    message: req.request_text,
+    customer_tier: req.customer_tier,
+    location: req.location,
+    zip: req.zip,
+    start_date: req.start_date,
+    end_date: req.end_date,
+    seed: req.seed,
+  };
 
-    const fixDate = (s?: string) => {
-      if (!s) return undefined;
-      const d = new Date(s);
-      if (isNaN(d.getTime())) return undefined;
-      return d.toISOString().slice(0, 10);
-    };
-    payload.start_date = fixDate(req.start_date);
-    payload.end_date   = fixDate(req.end_date);
+  const fixDate = (s?: string) => {
+    if (!s) return undefined;
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return undefined;
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  };
 
-    if (payload.seed === '' || payload.seed == null || !Number.isFinite(Number(payload.seed))) {
-      delete payload.seed;
-    } else {
-      payload.seed = Number(payload.seed);
-    }
-    if (!payload.zip) delete payload.zip;
-    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+  payload.start_date = fixDate(req.start_date);
+  payload.end_date   = fixDate(req.end_date);
 
-    return this.http.post<QuoteRunResponse>(`${BASE}/quote/run`, payload);
+  if (payload.seed === '' || payload.seed == null || !Number.isFinite(Number(payload.seed))) {
+    delete payload.seed;
+  } else {
+    payload.seed = Number(payload.seed);
   }
+
+  if (!payload.zip) delete payload.zip;
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+  return this.http.post<QuoteRunResponse>(`${BASE}/quote/run`, payload);
+}
 
   sendFeedback(run_id: number, rating: number, note: string) {
     return this.http.post(`${BASE}/quote/feedback`, { run_id, rating, note });

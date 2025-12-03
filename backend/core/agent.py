@@ -1,12 +1,20 @@
-# backend/core/agent.py
 from __future__ import annotations
-import re, json, time
+import re, json, time, os
 from typing import Dict, Any, List
 from dateutil import parser as dateparser
 from sqlalchemy import text
 
+from dotenv import load_dotenv
+from openai import OpenAI
+
 from backend.db.connect import SessionLocal
 from backend.core.tracing import add_step
+
+# Load .env so OPENAI_API_KEY is available
+load_dotenv()
+
+# Create a single OpenAI client for this module
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Simple noun→SKU map (expand later)
 SKU_MAP = {
@@ -179,7 +187,7 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
 
     # 2) pricing policies
     t1 = _now_ms()
-    policies = _fetch_policies(payload.get("customer_tier") or "C")
+    policies = _fetch_policies()
     add_step(run_id, "policies", {}, policies, _now_ms() - t1)
 
     # 3) pricing
@@ -214,5 +222,57 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     if quote["subtotal"] <= 0:
         raise ValueError("subtotal must be positive")
     add_step(run_id, "policy_guardrails", {}, quote, _now_ms() - t3)
+
+        # ---------- build AI-style notes ----------
+    notes: List[str] = []
+
+    if used_inferred:
+        notes.append("Inferred rental items from the renter message.")
+    if used_fallback:
+        notes.append("Applied a default chair package so the quote is never empty.")
+
+    if payload.get("start_date") or payload.get("end_date"):
+        notes.append(f"Assumed {days} rental day(s) based on the provided dates.")
+    else:
+        notes.append(f"Assumed a default rental duration of {days} day(s).")
+
+    tier = payload.get("customer_tier") or "C"
+    notes.append(f"Applied pricing and policies for customer tier {tier}.")
+
+    #  Ask OpenAI for a one-sentence summary (optional, wrapped in try/except)
+    try:
+        user_msg = payload.get("message") or "Customer rental request."
+        ai_resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a rental quote assistant. "
+                        "Write ONE short, friendly sentence explaining the quote to a customer. "
+                        "Do not mention internal SKUs or calculations, just the outcome."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Customer message: {user_msg}\n"
+                        f"Subtotal: {quote['subtotal']}, Fees: {quote['fees']}, "
+                        f"Tax: {quote['tax']}, Total: {quote['total']}."
+                    ),
+                },
+            ],
+        )
+        explanation = ai_resp.choices[0].message.content.strip()
+        notes.append(f"AI summary: {explanation}")
+    except Exception as e:
+        # Don't break the quote if OpenAI fails
+        notes.append("AI summary unavailable due to an internal error.")
+
+    quote["notes"] = notes
+    # ---------- END NEW NOTES ----------
+
+    add_step(run_id, "pricing", {"items": items, "days": days}, quote, _now_ms() - t2)
+
 
     return quote
