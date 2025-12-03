@@ -15,6 +15,7 @@ from backend.db.connect import SessionLocal
 
 router = APIRouter(prefix="/quote", tags=["quote"])
 
+
 # ---------- Helper: adapt internal quote → UI shape ----------
 
 def _adapt_quote_for_ui(raw: Dict[str, Any]) -> Dict[str, Any]:
@@ -96,7 +97,6 @@ def run_quote(req: QuoteRunPayload) -> Dict[str, Any]:
     return {"run_id": run_id, "quote": ui_quote}
 
 
-
 @router.post("/feedback")
 def feedback(inb: FeedbackIn) -> Dict[str, Any]:
     """
@@ -141,6 +141,7 @@ def feedback(inb: FeedbackIn) -> Dict[str, Any]:
                 status_code=500, detail="Malformed quote payload in last step"
             )
 
+        # Apply discount only for low ratings
         if inb.rating <= 3 and subtotal > 0:
             discount = round(subtotal * 0.10, 2)
             # Add as a negative fee (non-taxable)
@@ -148,8 +149,8 @@ def feedback(inb: FeedbackIn) -> Dict[str, Any]:
             quote["fees"] = fees
             quote["total"] = round(total - discount, 2)
 
-            ui_quote = _adapt_quote_for_ui(quote)
-
+        # Always adapt to UI + record feedback
+        ui_quote = _adapt_quote_for_ui(quote)
         add_step(
             inb.run_id,
             "feedback_apply",
@@ -159,16 +160,6 @@ def feedback(inb: FeedbackIn) -> Dict[str, Any]:
         )
         finish_run(inb.run_id, 0.0)
         return {"run_id": inb.run_id, "quote": ui_quote}
-
-        # No discount applied; still record the feedback
-        add_step(
-            inb.run_id,
-            "feedback_apply",
-            {"rating": inb.rating, "note": inb.note},
-            quote,
-            0,
-        )
-        return {"run_id": inb.run_id, "quote": quote}
 
 
 @router.get("/runs/{run_id}")
@@ -181,7 +172,7 @@ def get_run(run_id: int) -> Dict[str, Any]:
             s.execute(
                 text(
                     """
-                SELECT id, kind, input_json, output_json, duration_ms
+                SELECT id, kind, input_json, output_json, latency_ms
                 FROM steps
                 WHERE run_id = :rid
                 ORDER BY id

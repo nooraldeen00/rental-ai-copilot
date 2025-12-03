@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 from sqlalchemy import text
 from sqlalchemy.engine import Result
@@ -22,8 +22,8 @@ def _dumps(obj: Any) -> str:
 def _fetch_last_inserted_id(result: Result) -> Optional[int]:
     """
     Try to get inserted id in a way that works across SQLite/MySQL/Postgres.
-    - Prefer RETURNING id (Postgres/MySQL 8.0.21+ with SQLAlchemy text RETURNING).
-    - Else fall back to DBAPI cursor.lastrowid (SQLite/MySQL).
+    - Prefer RETURNING id.
+    - Else fall back to DBAPI cursor.lastrowid.
     """
     try:
         # If INSERT ... RETURNING id was used:
@@ -48,10 +48,10 @@ def _fetch_last_inserted_id(result: Result) -> Optional[int]:
 def start_run(input_text: str, seed: Optional[int]) -> int:
     """
     Create a run row with status='running'. Returns the new run id.
-    Table expected: runs(id PK, input_text TEXT, seed INT, status TEXT, cost_usd REAL, created_at ...)
+    Table expected: runs(id PK, input_text TEXT, seed INT, status TEXT, cost_usd REAL, created_at ...).
     """
     with SessionLocal() as s:
-        # Try RETURNING first (best for Postgres; also supported by recent MySQL)
+        # Try RETURNING first
         try:
             result = s.execute(
                 text(
@@ -79,38 +79,28 @@ def start_run(input_text: str, seed: Optional[int]) -> int:
             if rid is not None:
                 return rid
 
-            # Absolute fallback for SQLite
-            with SessionLocal() as s2:
-                row = (
-                    s2.execute(text("SELECT last_insert_rowid() AS id"))
-                    .mappings()
-                    .first()
-                )
-                if row and "id" in row:
-                    return int(row["id"])
-
     raise RuntimeError("Failed to create run id")
 
 
 def add_step(
-    run_id: int, kind: str, input_json: Any, output_json: Any, duration_ms: int
+    run_id: int, kind: str, input_json: Any, output_json: Any, latency_ms: int
 ) -> None:
     """
     Append a step to the steps table. Stores valid JSON in input_json/output_json.
-    Table expected: steps(id PK, run_id INT, kind TEXT, input_json TEXT, output_json TEXT, duration_ms INT, created_at ...)
+    Table expected: steps(id PK, run_id INT, kind TEXT, input_json JSON, output_json JSON, latency_ms INT, created_at ...).
     """
     with SessionLocal() as s:
         s.execute(
             text(
-                "INSERT INTO steps (run_id, kind, input_json, output_json, duration_ms) "
-                "VALUES (:rid, :k, :in_json, :out_json, :dur)"
+                "INSERT INTO steps (run_id, kind, input_json, output_json, latency_ms) "
+                "VALUES (:rid, :k, :in_json, :out_json, :lat)"
             ),
             {
                 "rid": run_id,
                 "k": kind,
                 "in_json": _dumps(input_json),
                 "out_json": _dumps(output_json),
-                "dur": int(duration_ms or 0),
+                "lat": int(latency_ms or 0),
             },
         )
         s.commit()

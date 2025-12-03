@@ -1,4 +1,3 @@
-# backend/routes/runs.py
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
 from backend.db.connect import SessionLocal
@@ -7,7 +6,7 @@ from typing import Any, List, Dict
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
-SAFE_KINDS = ("feedback_apply", "policy_guardrails")
+SAFE_KINDS = ("feedback_apply", "policy_guardrails")  # still useful for Python-side checks
 
 
 def _to_json(obj: Any) -> Any:
@@ -20,7 +19,6 @@ def _to_json(obj: Any) -> Any:
         obj = obj.decode("utf-8", errors="ignore")
     if isinstance(obj, str):
         obj = obj.strip()
-        # tolerate accidental single quotes by swapping to double quotes (best effort)
         if obj and obj[0] in "'{" and "'" in obj and '"' not in obj:
             try:
                 obj = obj.replace("'", '"')
@@ -29,8 +27,7 @@ def _to_json(obj: Any) -> Any:
         try:
             return json.loads(obj)
         except Exception:
-            return {}  # last-resort: don't crash the endpoint
-    # anything else → not JSON
+            return {}
     return {}
 
 
@@ -42,11 +39,11 @@ def get_run(run_id: int):
             s.execute(
                 text(
                     """
-                SELECT id, kind, output_json
-                FROM steps
-                WHERE run_id = :rid
-                ORDER BY id ASC
-            """
+                    SELECT id, kind, output_json
+                    FROM steps
+                    WHERE run_id = :rid
+                    ORDER BY id ASC
+                    """
                 ),
                 {"rid": run_id},
             )
@@ -57,20 +54,20 @@ def get_run(run_id: int):
         if not steps:
             raise HTTPException(status_code=404, detail="No steps for run")
 
-        # 2) fetch latest "quote-like" payload directly in SQL (fast path)
+        # 2) fetch latest "quote-like" payload
         latest_row = (
             s.execute(
                 text(
                     """
-                SELECT output_json
-                FROM steps
-                WHERE run_id = :rid
-                  AND kind IN :kinds
-                ORDER BY id DESC
-                LIMIT 1
-            """
+                    SELECT output_json
+                    FROM steps
+                    WHERE run_id = :rid
+                      AND kind IN ('policy_guardrails', 'feedback_apply')
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """
                 ),
-                {"rid": run_id, "kinds": SAFE_KINDS},
+                {"rid": run_id},
             )
             .mappings()
             .first()
@@ -78,7 +75,7 @@ def get_run(run_id: int):
 
         latest_json = _to_json(latest_row["output_json"]) if latest_row else {}
 
-        # 3) serialize the trace with safe JSON too (nice for UI)
+        # 3) serialize trace
         trace: List[Dict[str, Any]] = []
         for st in steps:
             trace.append(
