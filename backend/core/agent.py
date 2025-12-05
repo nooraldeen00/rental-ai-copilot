@@ -13,6 +13,7 @@ from backend.db.connect import SessionLocal
 from backend.core.tracing import add_step
 from backend.core.logging_config import get_logger
 from backend.core.exceptions import DatabaseError, AIServiceError, QuoteGenerationError
+from backend.core.item_parser import parse_items_from_message, extract_duration_hint
 
 # Load .env so OPENAI_API_KEY is available
 load_dotenv()
@@ -29,44 +30,46 @@ if not api_key:
 client = OpenAI(api_key=api_key)
 logger.info("OpenAI client initialized successfully")
 
-# Simple noun→SKU map (updated for enhanced seed data)
-SKU_MAP = {
-    "chair": "CHAIR-FOLD-WHT",
-    "chairs": "CHAIR-FOLD-WHT",
-    "tent": "TENT-20x20",
-    "tents": "TENT-20x20",
-    "table": "TABLE-8FT-RECT",
-    "tables": "TABLE-8FT-RECT",
-}
-
 
 def _now_ms() -> int:
     return int(time.time() * 1000)
 
 
 def _duration_days(
-    start_s: str | None, end_s: str | None, fallback_days: int = 3
+    start_s: str | None, end_s: str | None, message: str = "", fallback_days: int = 3
 ) -> int:
+    """
+    Calculate rental duration from dates or message hints.
+
+    Args:
+        start_s: Start date string
+        end_s: End date string
+        message: Customer message (may contain duration hints)
+        fallback_days: Default duration if nothing is found
+
+    Returns:
+        Number of rental days
+    """
     try:
-        if not start_s or not end_s:
-            return fallback_days
-        start = dateparser.parse(start_s).date()
-        end = dateparser.parse(end_s).date()
-        return max(1, (end - start).days + 1)
-    except Exception:
-        return fallback_days
+        # First try explicit dates
+        if start_s and end_s:
+            start = dateparser.parse(start_s).date()
+            end = dateparser.parse(end_s).date()
+            days = max(1, (end - start).days + 1)
+            logger.debug(f"Calculated duration from dates: {days} days ({start_s} to {end_s})")
+            return days
+    except Exception as e:
+        logger.warning(f"Failed to parse dates: {str(e)}")
 
+    # Try to extract from message
+    if message:
+        duration_hint = extract_duration_hint(message)
+        if duration_hint:
+            logger.debug(f"Extracted duration from message: {duration_hint} days")
+            return duration_hint
 
-def _infer_from_message(msg: str) -> Dict[str, Any]:
-    items: List[Dict[str, Any]] = []
-    for m in re.finditer(r"(\d+)\s+(chairs?|tents?|tables?)", msg.lower()):
-        qty = int(m.group(1))
-        noun = m.group(2)
-        sku = SKU_MAP.get(noun)
-        if sku:
-            items.append({"sku": sku, "quantity": qty})
-    zip_m = re.search(r"\b(\d{5})\b", msg)
-    return {"items": items, "zip": zip_m.group(1) if zip_m else None}
+    logger.debug(f"Using fallback duration: {fallback_days} days")
+    return fallback_days
 
 
 def _fetch_policies() -> Dict[str, Any]:
@@ -135,8 +138,22 @@ def _fetch_name_for_sku(sku: str) -> str:
 
 
 def _compute(
-    items: List[Dict[str, Any]], days: int, policies: Dict[str, Any]
+    items: List[Dict[str, Any]], days: int, policies: Dict[str, Any], tier: str = "C"
 ) -> Dict[str, Any]:
+    """
+    Compute quote pricing with tier discount support.
+
+    Args:
+        items: List of items with sku and quantity
+        days: Rental duration in days
+        policies: Pricing policies from database
+        tier: Customer tier (A, B, or C)
+
+    Returns:
+        Quote dict with line_items, subtotal, fees, tax, total, and discount info
+    """
+    logger.debug(f"Computing quote: {len(items)} items, {days} days, tier {tier}")
+
     line_items = []
     subtotal = 0.0
     max_delivery = 0.0
@@ -147,7 +164,7 @@ def _compute(
         rate = _fetch_rate_for_sku(sku)
         name = _fetch_name_for_sku(sku)
 
-        unit = float(rate["daily"]) * days  # simple: daily * days (improve later)
+        unit = float(rate["daily"]) * days
         extended = round(unit * qty, 2)
         max_delivery = max(max_delivery, float(rate["delivery_fee_base"]))
 
@@ -155,45 +172,76 @@ def _compute(
             {
                 "sku": sku,
                 "name": name,
-                "quantity": qty,
-                "unit_price": round(unit, 2),
-                "extended": extended,
+                "qty": qty,  # Changed from 'quantity' to 'qty' for consistency with frontend
+                "unitPrice": round(unit, 2),  # Changed from 'unit_price' to match frontend
+                "subtotal": extended,  # Changed from 'extended' to match frontend
             }
         )
         subtotal += extended
 
     subtotal = round(subtotal, 2)
+
+    # Apply tier discount
+    tier_discounts = policies.get("tier_discounts", {})
+    discount_pct = float(tier_discounts.get(tier, {}).get("pct", 0.0))
+    discount_amount = round(subtotal * discount_pct / 100.0, 2)
+    subtotal_after_discount = round(subtotal - discount_amount, 2)
+
+    logger.info(
+        f"Tier discount applied: {discount_pct}% for tier {tier}",
+        extra={"extra_fields": {
+            "tier": tier,
+            "discount_pct": discount_pct,
+            "discount_amount": discount_amount,
+            "subtotal_before": subtotal,
+            "subtotal_after": subtotal_after_discount
+        }}
+    )
+
     fees = []
 
-    # damage waiver
+    # Damage waiver (applied to discounted subtotal)
     dw_pct = float((policies.get("default_damage_waiver") or {}).get("pct", 0.0))
-    damage_waiver = round(subtotal * dw_pct / 100.0, 2) if dw_pct else 0.0
+    damage_waiver = round(subtotal_after_discount * dw_pct / 100.0, 2) if dw_pct else 0.0
     if damage_waiver:
-        fees.append({"rule": "damage_waiver", "amount": damage_waiver})
+        fees.append({"name": "Damage Waiver", "amount": damage_waiver})
 
-    # one delivery fee for the whole order (max of line bases)
+    # Delivery fee (one fee for the whole order)
     delivery_fee = round(max_delivery, 2) if max_delivery else 0.0
     if delivery_fee:
-        fees.append({"rule": "delivery_fee_base", "amount": delivery_fee})
+        fees.append({"name": "Delivery & Pickup", "amount": delivery_fee})
 
-    taxable = subtotal + damage_waiver + delivery_fee
+    # Tax calculation (on discounted subtotal + fees)
+    taxable = subtotal_after_discount + damage_waiver + delivery_fee
     tax_pct = float((policies.get("tax_rate") or {}).get("pct", 0.0))
     tax = round(taxable * tax_pct / 100.0, 2) if tax_pct else 0.0
 
     total = round(taxable + tax, 2)
 
     return {
-        "line_items": line_items,
-        "subtotal": subtotal,
+        "items": line_items,  # Changed from 'line_items' to 'items' for frontend consistency
+        "subtotal": subtotal_after_discount,
+        "subtotal_before_discount": subtotal,  # Keep track of original subtotal
+        "discount_pct": discount_pct,
+        "discount_amount": discount_amount,
         "fees": fees,
         "tax": tax,
         "total": total,
         "days": days,
     }
 
-from typing import Dict, Any, List
 
 def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Main quote generation loop with improved parsing and tier discounts.
+
+    Args:
+        run_id: Unique ID for this quote run
+        payload: Request payload with message, dates, tier, etc.
+
+    Returns:
+        Quote dict with items, pricing, fees, and AI-generated notes
+    """
     logger.info(
         f"Starting quote generation loop for run {run_id}",
         extra={
@@ -207,22 +255,33 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     msg = (payload.get("message") or "").strip()
-    inferred = _infer_from_message(msg) if msg else {"items": []}
+    tier = payload.get("customer_tier") or "C"
 
-    items = payload.get("items") or []
-    used_inferred = False
+    # Parse items from message using new intelligent parser
+    parsed_items = []
+    used_parser = False
     used_fallback = False
 
-    if not items and inferred["items"]:
-        items = inferred["items"]
-        used_inferred = True
-        logger.info(
-            f"Inferred {len(items)} items from message for run {run_id}",
-            extra={"extra_fields": {"run_id": run_id, "item_count": len(items)}},
-        )
+    if msg:
+        parsed_items = parse_items_from_message(msg)
+        if parsed_items:
+            used_parser = True
+            logger.info(
+                f"Parsed {len(parsed_items)} items from message for run {run_id}",
+                extra={"extra_fields": {
+                    "run_id": run_id,
+                    "message_preview": msg[:100],
+                    "parsed_items": [{"sku": i["sku"], "qty": i["quantity"], "confidence": i["confidence"]} for i in parsed_items]
+                }},
+            )
 
+    # Use explicit items from payload if provided, otherwise use parsed items
+    items = payload.get("items") or []
+    if not items and parsed_items:
+        items = [{"sku": i["sku"], "quantity": i["quantity"]} for i in parsed_items]
+
+    # Safety fallback if still no items
     if not items:
-        # demo / safety fallback so the quote is never empty
         items = [{"sku": "CHAIR-FOLD-WHT", "quantity": 100}]
         used_fallback = True
         logger.warning(
@@ -230,8 +289,12 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
             extra={"extra_fields": {"run_id": run_id}},
         )
 
+    # Calculate rental duration
     days = _duration_days(
-        payload.get("start_date"), payload.get("end_date"), fallback_days=3
+        payload.get("start_date"),
+        payload.get("end_date"),
+        msg,
+        fallback_days=3
     )
     logger.debug(
         f"Calculated rental duration: {days} days for run {run_id}",
@@ -242,11 +305,11 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
         run_id,
         "normalize",
         {"payload": payload},
-        {"items": items, "days": days},
+        {"items": items, "days": days, "tier": tier},
         0,
     )
 
-    # 2) pricing policies
+    # Fetch pricing policies
     logger.debug(f"Fetching pricing policies for run {run_id}")
     t1 = _now_ms()
     try:
@@ -265,11 +328,12 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
         )
         raise
 
-    # 3) pricing
+    # Compute quote with tier discounts
     logger.debug(f"Computing quote pricing for run {run_id}")
     t2 = _now_ms()
     try:
-        quote = _compute(items, days, policies)
+        quote = _compute(items, days, policies, tier)
+        pricing_latency = _now_ms() - t2
         logger.info(
             f"Quote computed for run {run_id}: subtotal=${quote.get('subtotal')}, total=${quote.get('total')}",
             extra={
@@ -277,7 +341,8 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
                     "run_id": run_id,
                     "subtotal": quote.get("subtotal"),
                     "total": quote.get("total"),
-                    "item_count": len(quote.get("line_items", [])),
+                    "item_count": len(quote.get("items", [])),
+                    "discount_applied": quote.get("discount_amount", 0),
                 }
             },
         )
@@ -289,30 +354,9 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
         )
         raise
 
-    # ---------- build AI-style notes ----------
-    notes: List[str] = []
+    add_step(run_id, "pricing", {"items": items, "days": days}, quote, pricing_latency)
 
-    if used_inferred:
-        notes.append("Inferred rental items from the renter message.")
-    if used_fallback:
-        notes.append("Applied a default chair package so the quote is never empty.")
-
-    # Note about duration
-    if payload.get("start_date") or payload.get("end_date"):
-        notes.append(f"Assumed {days} rental day(s) based on the provided dates.")
-    else:
-        notes.append(f"Assumed a default rental duration of {days} day(s).")
-
-    # Note about tier
-    tier = payload.get("customer_tier") or "C"
-    notes.append(f"Applied pricing and policies for customer tier {tier}.")
-
-    quote["notes"] = notes
-    # ---------- END NEW NOTES ----------
-
-    add_step(run_id, "pricing", {"items": items, "days": days}, quote, _now_ms() - t2)
-
-    # 4) guardrails
+    # Apply policy guardrails
     logger.debug(f"Applying policy guardrails for run {run_id}")
     t3 = _now_ms()
     if quote["subtotal"] <= 0:
@@ -328,49 +372,53 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
         extra={"extra_fields": {"run_id": run_id}},
     )
 
-        # ---------- build AI-style notes ----------
+    # Build AI-generated notes
     notes: List[str] = []
 
-    if used_inferred:
-        notes.append("Inferred rental items from the renter message.")
-    if used_fallback:
-        notes.append("Applied a default chair package so the quote is never empty.")
-
-    if payload.get("start_date") or payload.get("end_date"):
-        notes.append(f"Assumed {days} rental day(s) based on the provided dates.")
-    else:
-        notes.append(f"Assumed a default rental duration of {days} day(s).")
-
-    tier = payload.get("customer_tier") or "C"
-    notes.append(f"Applied pricing and policies for customer tier {tier}.")
-
-    #  Ask OpenAI for a one-sentence summary (optional, wrapped in try/except)
+    # Generate professional AI explanation
     logger.debug(f"Generating AI summary for run {run_id}")
     try:
         user_msg = payload.get("message") or "Customer rental request."
+
+        # Build item summary for AI
+        item_summary = ", ".join([f"{i['qty']}x {i['name']}" for i in quote['items'][:5]])
+        if len(quote['items']) > 5:
+            item_summary += f" (and {len(quote['items']) - 5} more items)"
+
+        tier_names = {"A": "Premium", "B": "Corporate", "C": "Standard"}
+        tier_name = tier_names.get(tier, "Standard")
+
+        system_prompt = """You are a professional customer service representative for a premium rental equipment company.
+
+Generate a concise, professional explanation of this quote that:
+1. Acknowledges what the customer requested
+2. Briefly explains the equipment provided
+3. Mentions tier discount if applicable (but keep it subtle and professional)
+4. Sounds warm, competent, and trustworthy - like a CSR from a high-end service company
+
+Keep it to 2-3 sentences maximum. Use professional but approachable language. Do not mention SKUs, internal codes, or technical calculation details."""
+
+        user_prompt = f"""Customer request: "{user_msg}"
+
+Equipment provided: {item_summary}
+Rental duration: {days} day(s)
+Customer tier: {tier_name} (tier {tier})
+Discount applied: {quote['discount_pct']}%
+Subtotal before discount: ${quote['subtotal_before_discount']:.2f}
+Final total: ${quote['total']:.2f}"""
+
         ai_resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a rental quote assistant. "
-                        "Write ONE short, friendly sentence explaining the quote to a customer. "
-                        "Do not mention internal SKUs or calculations, just the outcome."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"Customer message: {user_msg}\n"
-                        f"Subtotal: {quote['subtotal']}, Fees: {quote['fees']}, "
-                        f"Tax: {quote['tax']}, Total: {quote['total']}."
-                    ),
-                },
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
             ],
+            temperature=0.7,
+            max_tokens=150,
         )
         explanation = ai_resp.choices[0].message.content.strip()
-        notes.append(f"AI summary: {explanation}")
+        notes.append(explanation)
+
         logger.info(
             f"Generated AI summary for run {run_id}",
             extra={"extra_fields": {"run_id": run_id, "summary_length": len(explanation)}},
@@ -381,20 +429,30 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
             exc_info=True,
             extra={"extra_fields": {"run_id": run_id}},
         )
-        notes.append("AI summary unavailable due to an internal error.")
+        notes.append("Our AI quote assistant is temporarily unavailable, but your quote has been calculated accurately.")
     except Exception as e:
         logger.error(
             f"Unexpected error generating AI summary for run {run_id}: {str(e)}",
             exc_info=True,
             extra={"extra_fields": {"run_id": run_id}},
         )
-        notes.append("AI summary unavailable due to an internal error.")
+        notes.append("Quote calculated successfully. Our team is ready to assist with any questions.")
+
+    # Add technical notes for transparency (optional, can be removed if too verbose)
+    if used_parser:
+        notes.append(f"Intelligent parsing identified {len(items)} equipment type(s) from your request.")
+    if used_fallback:
+        notes.append("Sample quote generated. Please specify your equipment needs for an accurate estimate.")
+
+    # Add duration note
+    if payload.get("start_date") and payload.get("end_date"):
+        notes.append(f"Rental period: {days} day(s) based on your specified dates.")
+    else:
+        duration_hint = extract_duration_hint(msg) if msg else None
+        if duration_hint:
+            notes.append(f"Estimated {days}-day rental based on your request.")
 
     quote["notes"] = notes
-    # ---------- END NEW NOTES ----------
-
-    pricing_latency = _now_ms() - t2
-    add_step(run_id, "pricing", {"items": items, "days": days}, quote, pricing_latency)
 
     logger.info(
         f"Quote generation loop completed successfully for run {run_id}",
