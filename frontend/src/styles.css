@@ -370,3 +370,449 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* ====================================================================
+   STEP 4: UI/UX IMPROVEMENTS
+   ==================================================================== */
+
+/* Prominent Total Card */
+.quote-total-card {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.1));
+  border: 2px solid rgba(52, 211, 153, 0.4);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2);
+  backdrop-filter: blur(8px);
+}
+
+.total-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.total-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #6ee7b7;
+  font-weight: 700;
+}
+
+.tier-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #a7f3d0;
+  font-weight: 600;
+}
+
+.total-amount {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #6ee7b7;
+  text-shadow: 0 0 20px rgba(52, 211, 153, 0.5);
+  margin-bottom: 1rem;
+  line-height: 1;
+}
+
+.total-breakdown {
+  border-top: 1px solid rgba(52, 211, 153, 0.2);
+  padding-top: 1rem;
+}
+
+.breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 0.4rem 0;
+  color: #d1fae5;
+}
+
+.breakdown-row:last-child {
+  border-top: 1px solid rgba(52, 211, 153, 0.2);
+  padding-top: 0.6rem;
+  margin-top: 0.4rem;
+  font-weight: 600;
+  color: #a7f3d0;
+}
+
+.total-location {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: #9ca3af;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(52, 211, 153, 0.15);
+}
+
+/* Section Headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #d1d5db;
+  font-weight: 700;
+  margin: 1.5rem 0 0.8rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.section-header:first-child {
+  margin-top: 0;
+}
+
+.section-icon {
+  font-size: 1.1rem;
+}
+
+/* Enhanced Items Table */
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-top: 0.8rem;
+}
+
+.items-table thead {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.items-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #d1d5db;
+  padding: 0.7rem 0.8rem;
+  border-bottom: 2px solid rgba(52, 211, 153, 0.3);
+}
+
+.items-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.items-table tbody tr.row-even td {
+  background-color: rgba(15, 23, 42, 0.3);
+}
+
+.items-table tbody tr:hover td {
+  background-color: rgba(52, 211, 153, 0.05);
+}
+
+.items-table td {
+  padding: 0.75rem 0.8rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.5);
+}
+
+.items-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.item-name {
+  font-weight: 500;
+  color: #f9fafb;
+}
+
+.item-sku {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin-top: 0.2rem;
+}
+
+/* AI Notes Section */
+.ai-notes-section {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05));
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 1.5rem;
+}
+
+.ai-notes-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #93c5fd;
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+}
+
+.ai-icon {
+  font-size: 1.2rem;
+}
+
+.ai-notes-content {
+  font-size: 0.82rem;
+  color: #dbeafe;
+  line-height: 1.6;
+}
+
+.ai-notes-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ai-notes-list li {
+  padding-left: 1.2rem;
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+
+.ai-notes-list li:before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+/* Enhanced Empty State */
+.preview-empty {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  color: #9ca3af;
+}
+
+.empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.empty-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #d1d5db;
+  margin-bottom: 0.8rem;
+}
+
+.empty-message {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  max-width: 28rem;
+  margin: 0 auto 1.5rem;
+}
+
+.empty-example {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 10px;
+  border: 1px dashed rgba(52, 211, 153, 0.3);
+  max-width: 26rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.example-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #6ee7b7;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.example-text {
+  font-size: 0.8rem;
+  color: #d1d5db;
+  font-style: italic;
+}
+
+/* Enhanced Loading State */
+.preview-loading {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.loading-spinner-large {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 4px solid rgba(52, 211, 153, 0.2);
+  border-top-color: #6ee7b7;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 1.5rem;
+}
+
+.loading-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #d1d5db;
+  margin-bottom: 1.5rem;
+}
+
+.loading-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-width: 20rem;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.loading-step {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+.loading-step.active {
+  color: #d1d5db;
+}
+
+.step-icon {
+  font-size: 1rem;
+}
+
+/* Enhanced Error State */
+.preview-error {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.error-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.error-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fecaca;
+  margin-bottom: 0.8rem;
+}
+
+.error-message {
+  font-size: 0.85rem;
+  color: #fee2e2;
+  margin-bottom: 1.5rem;
+}
+
+.error-suggestions {
+  text-align: left;
+  max-width: 24rem;
+  margin: 0 auto 1.5rem;
+}
+
+.error-suggestions-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #fca5a5;
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+}
+
+.error-suggestions-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.error-suggestions-list li {
+  font-size: 0.8rem;
+  color: #fee2e2;
+  padding-left: 1.2rem;
+  position: relative;
+  margin-bottom: 0.4rem;
+}
+
+.error-suggestions-list li:before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #fca5a5;
+  font-weight: 700;
+}
+
+.btn-retry {
+  margin-top: 1rem;
+  border: none;
+  padding: 0.6rem 1.4rem;
+  border-radius: 999px;
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.btn-retry:hover {
+  background: rgba(248, 113, 113, 0.25);
+  border-color: rgba(248, 113, 113, 0.6);
+}
+
+/* Fees Section Styling */
+.fees-section {
+  margin-top: 1.5rem;
+}
+
+.fees-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+
+.fee-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  padding: 0.5rem 0.8rem;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 8px;
+}
+
+.fee-name {
+  color: #d1d5db;
+}
+
+.fee-amount {
+  color: #e5e7eb;
+  font-weight: 600;
+}
+
+/* Mobile Responsive Tweaks */
+@media (max-width: 640px) {
+  .total-amount {
+    font-size: 2.2rem;
+  }
+
+  .items-table {
+    font-size: 0.75rem;
+  }
+
+  .items-table th,
+  .items-table td {
+    padding: 0.6rem 0.5rem;
+  }
+
+  .quote-total-card {
+    padding: 1.2rem;
+  }
+
+  .section-header {
+    font-size: 0.75rem;
+  }
+}

@@ -1,5 +1,5 @@
 # backend/core/prompt.py
-EXTRACT_SYSTEM = """You are an extraction agent for a rental-quote copilot.
+EXTRACT_SYSTEM = """You are an extraction agent for RentalAI Copilot.
 Goal: Convert messy user text into a normalized payload for /quote/run.
 
 Rules:

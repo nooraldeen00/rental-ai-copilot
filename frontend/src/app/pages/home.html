@@ -3,10 +3,10 @@
     <div>
       <div class="header-top-line">
         <span class="header-dot"></span>
-        <span>AI Quote Copilot • Beta</span>
+        <span>RentalAI Copilot • Beta</span>
       </div>
       <h1 class="page-title">
-        Point of Rental <span>AI Quote Copilot</span>
+        <span>RentalAI Copilot</span>
       </h1>
       <p class="page-subtitle">
         Paste a renter request and let the copilot infer items, apply tier policies, and compute totals —
@@ -147,89 +147,149 @@
         *ngIf="!result && !loading && !error"
         class="preview-empty"
       >
-        Paste a renter request and click <strong>Generate Quote</strong> to see items, fees, and totals appear here.
+        <div class="empty-icon">✨</div>
+        <div class="empty-title">Ready to generate a quote</div>
+        <div class="empty-message">
+          Enter a customer request on the left and click <strong>Generate Quote</strong>
+          to see itemized pricing, fees, and AI recommendations.
+        </div>
+        <div class="empty-example">
+          <div class="example-label">Example request:</div>
+          <div class="example-text">
+            "Need 50 chairs and 5 tables for a weekend wedding in Dallas"
+          </div>
+        </div>
       </div>
 
       <!-- Loading -->
       <div *ngIf="loading" class="preview-loading">
-        <span class="spinner"></span>
-        <span>Asking the copilot to build your quote…</span>
+        <div class="loading-spinner-large"></div>
+        <div class="loading-title">Generating your quote...</div>
+        <div class="loading-steps">
+          <div class="loading-step active">
+            <span class="step-icon">✓</span>
+            <span>Analyzing request</span>
+          </div>
+          <div class="loading-step active">
+            <span class="step-icon">⏳</span>
+            <span>Finding inventory items</span>
+          </div>
+          <div class="loading-step">
+            <span class="step-icon">⏳</span>
+            <span>Applying pricing policies</span>
+          </div>
+        </div>
       </div>
 
       <!-- Error -->
       <div *ngIf="error && !loading" class="preview-error">
-        Request failed. {{ error }}
+        <div class="error-icon">😕</div>
+        <div class="error-title">Unable to generate quote</div>
+        <div class="error-message">{{ error }}</div>
+        <div class="error-suggestions">
+          <div class="error-suggestions-title">Common issues:</div>
+          <ul class="error-suggestions-list">
+            <li>Check backend is running</li>
+            <li>Verify request has details</li>
+            <li>Try a simpler request</li>
+          </ul>
+        </div>
+        <button class="btn-retry" (click)="onSubmit()">Try Again</button>
       </div>
 
       <!-- Result -->
       <ng-container *ngIf="result?.quote as q">
-        <div class="preview-body">
-          <div class="preview-summary-line">
-            <div>
-              <div class="preview-total-label">Summary</div>
-              <div>
-                Draft quote for
-                <strong>{{ form.location || 'event location' }}</strong>
-                (Tier {{ form.customer_tier || 'C' }}).
-              </div>
+        <!-- Prominent Total Card -->
+        <div class="quote-total-card">
+          <div class="total-card-header">
+            <span class="total-badge">QUOTE TOTAL</span>
+            <span class="tier-badge">Tier {{ form.customer_tier || 'C' }}</span>
+          </div>
+
+          <div class="total-amount">
+            ${{ q.total || 0 | number : '1.2-2' }}
+          </div>
+
+          <div class="total-breakdown">
+            <div class="breakdown-row">
+              <span>Subtotal</span>
+              <span>${{ q.subtotal || 0 | number : '1.2-2' }}</span>
             </div>
-            <div>
-              <div class="preview-total-label">Estimated total</div>
-              <div class="preview-total">
-                {{ q.total || 0 | number : '1.2-2' }}
-              </div>
-              <div class="preview-subcaption">
-                Subtotal {{ q.subtotal || 0 | number : '1.2-2' }} · Tax
-                {{ q.tax || 0 | number : '1.2-2' }}
-              </div>
+            <div class="breakdown-row">
+              <span>Fees</span>
+              <span>${{ calculateFees(q.fees) | number : '1.2-2' }}</span>
+            </div>
+            <div class="breakdown-row">
+              <span>Tax (8.25%)</span>
+              <span>${{ q.tax || 0 | number : '1.2-2' }}</span>
             </div>
           </div>
 
-          <!-- Items table -->
-          <div *ngIf="q.items?.length">
-            <table class="preview-table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th style="text-align: right;">Qty</th>
-                  <th style="text-align: right;">Unit</th>
-                  <th style="text-align: right;">Extended</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let item of q.items">
-                  <td>
-                    <div>{{ item.name }}</div>
-                    <div *ngIf="item.sku" style="font-size: 0.7rem; color: #9ca3af;">
-                      SKU: {{ item.sku }}
-                    </div>
-                  </td>
-                  <td style="text-align: right;">
-                    {{ item.quantity }}
-                  </td>
-                  <td style="text-align: right;">
-                    {{ item.unit_price | number : '1.2-2' }}
-                  </td>
-                  <td style="text-align: right;">
-                    {{ item.extended | number : '1.2-2' }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="total-location" *ngIf="form.location">
+            <span>📍</span>
+            <span>{{ form.location }}</span>
           </div>
+        </div>
 
-          <!-- Fees -->
-          <div *ngIf="q.fees?.length" class="preview-fees">
-            <div class="preview-total-label">Fees &amp; adjustments</div>
-            <div
-              *ngFor="let f of q.fees"
-              class="preview-fees-row"
-            >
-              <span class="preview-fees-label">{{ f.name }}</span>
-              <span class="preview-fees-value">
-                {{ f.amount | number : '1.2-2' }}
-              </span>
+        <!-- Items Section -->
+        <div *ngIf="q.items?.length">
+          <div class="section-header">
+            <span class="section-icon">📋</span>
+            <span>LINE ITEMS ({{ q.items.length }} items)</span>
+          </div>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th style="text-align: right;">Qty</th>
+                <th style="text-align: right;">Unit</th>
+                <th style="text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of q.items; let i = index" [class.row-even]="i % 2 === 1">
+                <td>
+                  <div class="item-name">{{ item.name }}</div>
+                  <div *ngIf="item.sku" class="item-sku">
+                    SKU: {{ item.sku }}
+                  </div>
+                </td>
+                <td style="text-align: right;">
+                  {{ item.qty }}
+                </td>
+                <td style="text-align: right;">
+                  ${{ item.unitPrice | number : '1.2-2' }}
+                </td>
+                <td style="text-align: right;">
+                  ${{ item.subtotal | number : '1.2-2' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Fees Section -->
+        <div *ngIf="q.fees?.length" class="fees-section">
+          <div class="section-header">
+            <span class="section-icon">💵</span>
+            <span>FEES & ADJUSTMENTS</span>
+          </div>
+          <div class="fees-list">
+            <div *ngFor="let f of q.fees" class="fee-row">
+              <span class="fee-name">{{ f.name }}</span>
+              <span class="fee-amount">${{ f.amount | number : '1.2-2' }}</span>
             </div>
+          </div>
+        </div>
+
+        <!-- AI Notes Section -->
+        <div *ngIf="result?.notes" class="ai-notes-section">
+          <div class="ai-notes-header">
+            <span class="ai-icon">🤖</span>
+            <span>AI COPILOT NOTES</span>
+          </div>
+          <div class="ai-notes-content">
+            {{ result.notes }}
           </div>
         </div>
       </ng-container>

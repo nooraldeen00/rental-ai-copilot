@@ -2,6 +2,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export type Tier = 'A'|'B'|'C';
 
@@ -34,8 +35,8 @@ export interface QuoteRunResponse {
   completedAt?: string; // e.g. "2025-11-13T18:05:58Z" or formatted string
 }
 
-// IMPORTANT: your forwarded 8000 url
-const BASE = 'https://glorious-disco-977rvwx4vvp7fx99v-8000.app.github.dev';
+// API base URL from environment configuration
+const BASE = environment.apiUrl;
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {

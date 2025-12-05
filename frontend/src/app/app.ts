@@ -9,7 +9,7 @@ import { RouterOutlet } from '@angular/router';
   styleUrl: './app.css',
 })
 export class App {
-  protected readonly title = signal('quote-copilot');
+  protected readonly title = signal('rentalai-copilot');
 
   // Stub handlers so the (click) bindings in app.html are valid
   onGenerateQuote(): void {

@@ -84,4 +84,10 @@ export class HomeComponent {
     this.result = null;
     this.loading = false;
   }
+
+  // Helper to calculate total fees
+  calculateFees(fees: any[]): number {
+    if (!fees || !fees.length) return 0;
+    return fees.reduce((sum, fee) => sum + (fee.amount || fee.price || 0), 0);
+  }
 }

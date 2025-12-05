@@ -9,7 +9,7 @@ services:
       MYSQL_PASSWORD: por
       TZ: America/Chicago
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - dbdata:/var/lib/mysql
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro

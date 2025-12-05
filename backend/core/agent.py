@@ -3,27 +3,40 @@ import re, json, time, os
 from typing import Dict, Any, List
 from dateutil import parser as dateparser
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from openai import OpenAIError
 
 from backend.db.connect import SessionLocal
 from backend.core.tracing import add_step
+from backend.core.logging_config import get_logger
+from backend.core.exceptions import DatabaseError, AIServiceError, QuoteGenerationError
 
 # Load .env so OPENAI_API_KEY is available
 load_dotenv()
 
-# Create a single OpenAI client for this module
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Create logger
+logger = get_logger(__name__)
 
-# Simple noun→SKU map (expand later)
+# Create a single OpenAI client for this module
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    logger.error("OPENAI_API_KEY not found in environment")
+    raise ValueError("OPENAI_API_KEY environment variable is required")
+
+client = OpenAI(api_key=api_key)
+logger.info("OpenAI client initialized successfully")
+
+# Simple noun→SKU map (updated for enhanced seed data)
 SKU_MAP = {
-    "chair": "CHAIR-FOLD",
-    "chairs": "CHAIR-FOLD",
+    "chair": "CHAIR-FOLD-WHT",
+    "chairs": "CHAIR-FOLD-WHT",
     "tent": "TENT-20x20",
     "tents": "TENT-20x20",
-    "table": "TABLE-8FT",
-    "tables": "TABLE-8FT",
+    "table": "TABLE-8FT-RECT",
+    "tables": "TABLE-8FT-RECT",
 }
 
 
@@ -57,44 +70,68 @@ def _infer_from_message(msg: str) -> Dict[str, Any]:
 
 
 def _fetch_policies() -> Dict[str, Any]:
-    with SessionLocal() as s:
-        rows = (
-            s.execute(text("SELECT key_name, value_json FROM policies"))
-            .mappings()
-            .all()
-        )
-        out = {}
-        for r in rows:
-            val = r["value_json"]
-            if isinstance(val, (str, bytes)):
-                try:
-                    val = json.loads(val)
-                except Exception:
-                    pass
-            out[r["key_name"]] = val
-        return out
+    logger.debug("Fetching pricing policies from database")
+    try:
+        with SessionLocal() as s:
+            rows = (
+                s.execute(text("SELECT key_name, value_json FROM policies"))
+                .mappings()
+                .all()
+            )
+            out = {}
+            for r in rows:
+                val = r["value_json"]
+                if isinstance(val, (str, bytes)):
+                    try:
+                        val = json.loads(val)
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to parse policy {r['key_name']}: {str(e)}"
+                        )
+                        pass
+                out[r["key_name"]] = val
+            logger.info(f"Loaded {len(out)} pricing policies")
+            return out
+    except SQLAlchemyError as e:
+        logger.error(f"Database error fetching policies: {str(e)}", exc_info=True)
+        raise DatabaseError("Failed to fetch pricing policies", details={"error": str(e)})
 
 
 def _fetch_rate_for_sku(sku: str) -> Dict[str, Any]:
-    with SessionLocal() as s:
-        r = (
-            s.execute(text("SELECT * FROM rates WHERE sku=:sku"), {"sku": sku})
-            .mappings()
-            .first()
-        )
-        if not r:
-            raise ValueError(f"rate not found for {sku}")
-        return dict(r)
+    logger.debug(f"Fetching rate for SKU: {sku}")
+    try:
+        with SessionLocal() as s:
+            r = (
+                s.execute(text("SELECT * FROM rates WHERE sku=:sku"), {"sku": sku})
+                .mappings()
+                .first()
+            )
+            if not r:
+                logger.warning(f"No rate found for SKU: {sku}")
+                raise ValueError(f"rate not found for {sku}")
+            logger.debug(f"Found rate for SKU {sku}: daily=${r.get('daily')}")
+            return dict(r)
+    except SQLAlchemyError as e:
+        logger.error(f"Database error fetching rate for SKU {sku}: {str(e)}", exc_info=True)
+        raise DatabaseError(f"Failed to fetch rate for SKU {sku}", details={"sku": sku, "error": str(e)})
 
 
 def _fetch_name_for_sku(sku: str) -> str:
-    with SessionLocal() as s:
-        r = (
-            s.execute(text("SELECT name FROM inventory WHERE sku=:sku"), {"sku": sku})
-            .mappings()
-            .first()
-        )
-        return r["name"] if r else sku
+    logger.debug(f"Fetching inventory name for SKU: {sku}")
+    try:
+        with SessionLocal() as s:
+            r = (
+                s.execute(text("SELECT name FROM inventory WHERE sku=:sku"), {"sku": sku})
+                .mappings()
+                .first()
+            )
+            name = r["name"] if r else sku
+            if not r:
+                logger.warning(f"No inventory item found for SKU {sku}, using SKU as name")
+            return name
+    except SQLAlchemyError as e:
+        logger.error(f"Database error fetching inventory name for SKU {sku}: {str(e)}", exc_info=True)
+        return sku  # Fallback to SKU if database fails
 
 
 def _compute(
@@ -157,6 +194,18 @@ def _compute(
 from typing import Dict, Any, List
 
 def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+    logger.info(
+        f"Starting quote generation loop for run {run_id}",
+        extra={
+            "extra_fields": {
+                "run_id": run_id,
+                "has_message": bool(payload.get("message")),
+                "has_items": bool(payload.get("items")),
+                "customer_tier": payload.get("customer_tier"),
+            }
+        },
+    )
+
     msg = (payload.get("message") or "").strip()
     inferred = _infer_from_message(msg) if msg else {"items": []}
 
@@ -167,14 +216,26 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     if not items and inferred["items"]:
         items = inferred["items"]
         used_inferred = True
+        logger.info(
+            f"Inferred {len(items)} items from message for run {run_id}",
+            extra={"extra_fields": {"run_id": run_id, "item_count": len(items)}},
+        )
 
     if not items:
         # demo / safety fallback so the quote is never empty
-        items = [{"sku": "CHAIR-FOLD", "quantity": 100}]
+        items = [{"sku": "CHAIR-FOLD-WHT", "quantity": 100}]
         used_fallback = True
+        logger.warning(
+            f"No items found, using fallback for run {run_id}",
+            extra={"extra_fields": {"run_id": run_id}},
+        )
 
     days = _duration_days(
         payload.get("start_date"), payload.get("end_date"), fallback_days=3
+    )
+    logger.debug(
+        f"Calculated rental duration: {days} days for run {run_id}",
+        extra={"extra_fields": {"run_id": run_id, "days": days}},
     )
 
     add_step(
@@ -186,13 +247,47 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     # 2) pricing policies
+    logger.debug(f"Fetching pricing policies for run {run_id}")
     t1 = _now_ms()
-    policies = _fetch_policies()
-    add_step(run_id, "policies", {}, policies, _now_ms() - t1)
+    try:
+        policies = _fetch_policies()
+        latency = _now_ms() - t1
+        add_step(run_id, "policies", {}, policies, latency)
+        logger.info(
+            f"Loaded pricing policies for run {run_id} ({latency}ms)",
+            extra={"extra_fields": {"run_id": run_id, "latency_ms": latency}},
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch policies for run {run_id}: {str(e)}",
+            exc_info=True,
+            extra={"extra_fields": {"run_id": run_id}},
+        )
+        raise
 
     # 3) pricing
+    logger.debug(f"Computing quote pricing for run {run_id}")
     t2 = _now_ms()
-    quote = _compute(items, days, policies)
+    try:
+        quote = _compute(items, days, policies)
+        logger.info(
+            f"Quote computed for run {run_id}: subtotal=${quote.get('subtotal')}, total=${quote.get('total')}",
+            extra={
+                "extra_fields": {
+                    "run_id": run_id,
+                    "subtotal": quote.get("subtotal"),
+                    "total": quote.get("total"),
+                    "item_count": len(quote.get("line_items", [])),
+                }
+            },
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to compute quote for run {run_id}: {str(e)}",
+            exc_info=True,
+            extra={"extra_fields": {"run_id": run_id}},
+        )
+        raise
 
     # ---------- build AI-style notes ----------
     notes: List[str] = []
@@ -218,10 +313,20 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     add_step(run_id, "pricing", {"items": items, "days": days}, quote, _now_ms() - t2)
 
     # 4) guardrails
+    logger.debug(f"Applying policy guardrails for run {run_id}")
     t3 = _now_ms()
     if quote["subtotal"] <= 0:
+        logger.error(
+            f"Guardrail violation for run {run_id}: subtotal must be positive",
+            extra={"extra_fields": {"run_id": run_id, "subtotal": quote["subtotal"]}},
+        )
         raise ValueError("subtotal must be positive")
-    add_step(run_id, "policy_guardrails", {}, quote, _now_ms() - t3)
+    latency = _now_ms() - t3
+    add_step(run_id, "policy_guardrails", {}, quote, latency)
+    logger.info(
+        f"Policy guardrails passed for run {run_id}",
+        extra={"extra_fields": {"run_id": run_id}},
+    )
 
         # ---------- build AI-style notes ----------
     notes: List[str] = []
@@ -240,6 +345,7 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     notes.append(f"Applied pricing and policies for customer tier {tier}.")
 
     #  Ask OpenAI for a one-sentence summary (optional, wrapped in try/except)
+    logger.debug(f"Generating AI summary for run {run_id}")
     try:
         user_msg = payload.get("message") or "Customer rental request."
         ai_resp = client.chat.completions.create(
@@ -265,14 +371,41 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
         )
         explanation = ai_resp.choices[0].message.content.strip()
         notes.append(f"AI summary: {explanation}")
+        logger.info(
+            f"Generated AI summary for run {run_id}",
+            extra={"extra_fields": {"run_id": run_id, "summary_length": len(explanation)}},
+        )
+    except OpenAIError as e:
+        logger.error(
+            f"OpenAI API error generating summary for run {run_id}: {str(e)}",
+            exc_info=True,
+            extra={"extra_fields": {"run_id": run_id}},
+        )
+        notes.append("AI summary unavailable due to an internal error.")
     except Exception as e:
-        # Don't break the quote if OpenAI fails
+        logger.error(
+            f"Unexpected error generating AI summary for run {run_id}: {str(e)}",
+            exc_info=True,
+            extra={"extra_fields": {"run_id": run_id}},
+        )
         notes.append("AI summary unavailable due to an internal error.")
 
     quote["notes"] = notes
     # ---------- END NEW NOTES ----------
 
-    add_step(run_id, "pricing", {"items": items, "days": days}, quote, _now_ms() - t2)
+    pricing_latency = _now_ms() - t2
+    add_step(run_id, "pricing", {"items": items, "days": days}, quote, pricing_latency)
 
+    logger.info(
+        f"Quote generation loop completed successfully for run {run_id}",
+        extra={
+            "extra_fields": {
+                "run_id": run_id,
+                "subtotal": quote.get("subtotal"),
+                "total": quote.get("total"),
+                "pricing_latency_ms": pricing_latency,
+            }
+        },
+    )
 
     return quote

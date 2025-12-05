@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "quote-copilot": {
+    "rentalai-copilot": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -42,7 +42,13 @@
                   "maximumError": "8kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ]
             },
             "development": {
               "optimization": false,
@@ -56,10 +62,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "quote-copilot:build:production"
+              "buildTarget": "rentalai-copilot:build:production"
             },
             "development": {
-              "buildTarget": "quote-copilot:build:development"
+              "buildTarget": "rentalai-copilot:build:development"
             }
           },
           "defaultConfiguration": "development"
