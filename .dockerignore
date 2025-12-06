@@ -1,0 +1,43 @@
+# Ignore frontend files (not needed for backend API)
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# Ignore logs
+logs/
+*.log
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Ignore env files (handled via docker-compose environment)
+.env
+.env.local
+
+# Ignore docs
+*.md
+!README.md
+
+# Ignore test files
+.pytest_cache/
+.coverage
+
+# Ignore IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore temporary files
+tmp/
+temp/
+*.tmp

@@ -64,7 +64,7 @@ export class HomeComponent {
         this.loading = false;
       },
       error: () => {
-        this.error = 'Request failed.';
+        this.error = 'Quote engine connection failed. Please verify service availability.';
         this.loading = false;
       },
     });
