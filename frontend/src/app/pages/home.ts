@@ -2,11 +2,13 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgIf, NgFor, DecimalPipe } from '@angular/common';
 import { ApiService } from '../services/api';
+import { TtsService } from '../services/tts.service';
+import { InventoryBrowserComponent } from '../components/inventory-browser';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [FormsModule, NgIf, NgFor, DecimalPipe],
+  imports: [FormsModule, NgIf, NgFor, DecimalPipe, InventoryBrowserComponent],
   templateUrl: './home.html',
 })
 export class HomeComponent {
@@ -26,7 +28,23 @@ export class HomeComponent {
   error = '';
   result: any = null;
 
-  constructor(private api: ApiService) {}
+  // PDF download state
+  downloadingPdf = false;
+  pdfError: string | null = null;
+
+  // TTS state
+  isSpeaking = false;
+  ttsLoading = false;
+  ttsError: string | null = null;
+
+  // Inventory browser state
+  showInventoryBrowser = false;
+
+  constructor(private api: ApiService, private tts: TtsService) {}
+
+  get ttsSupported(): boolean {
+    return this.tts.isSupported;
+  }
 
   
   onSubmit() {
@@ -89,5 +107,89 @@ export class HomeComponent {
   calculateFees(fees: any[]): number {
     if (!fees || !fees.length) return 0;
     return fees.reduce((sum, fee) => sum + (fee.amount || fee.price || 0), 0);
+  }
+
+  /**
+   * Download the current quote as a PDF
+   */
+  onDownloadPdf() {
+    if (!this.result?.run_id) return;
+
+    this.downloadingPdf = true;
+    this.pdfError = null;
+
+    this.api.downloadQuotePdf(this.result.run_id).subscribe({
+      next: () => {
+        this.downloadingPdf = false;
+      },
+      error: (err: unknown) => {
+        console.error('PDF download failed:', err);
+        this.pdfError = 'Failed to download PDF. Please try again.';
+        this.downloadingPdf = false;
+      },
+    });
+  }
+
+  /**
+   * Play/stop the AI quote summary using ElevenLabs text-to-speech.
+   */
+  onPlaySummary() {
+    if (!this.result?.quote?.notes?.length) {
+      this.ttsError = 'No AI notes available to read.';
+      return;
+    }
+
+    // If currently speaking or loading, stop
+    if (this.isSpeaking || this.ttsLoading) {
+      this.tts.stop();
+      this.isSpeaking = false;
+      this.ttsLoading = false;
+      return;
+    }
+
+    this.ttsError = null;
+    this.ttsLoading = true;
+
+    // Convert notes array to speakable text
+    const text = this.tts.notesToSpeakableText(this.result.quote.notes);
+
+    this.tts.speak(
+      text,
+      () => {
+        // On end
+        this.isSpeaking = false;
+        this.ttsLoading = false;
+      },
+      (error) => {
+        // On error
+        this.ttsError = error;
+        this.isSpeaking = false;
+        this.ttsLoading = false;
+      }
+    );
+
+    // Update speaking state when audio starts playing
+    // The TTS service will set isSpeaking to true when audio plays
+    setTimeout(() => {
+      if (this.tts.isSpeaking) {
+        this.isSpeaking = true;
+        this.ttsLoading = false;
+      }
+    }, 100);
+  }
+
+  /**
+   * Open the inventory browser modal.
+   * Allows users to browse available equipment before creating a quote.
+   */
+  openInventoryBrowser(): void {
+    this.showInventoryBrowser = true;
+  }
+
+  /**
+   * Close the inventory browser modal.
+   */
+  closeInventoryBrowser(): void {
+    this.showInventoryBrowser = false;
   }
 }

@@ -29,11 +29,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       DATABASE_URL: mysql+pymysql://por:por@db:3306/por
       LLM_PROVIDER: openai
       LLM_MODEL: gpt-4o-mini
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
       TZ: America/Chicago
     ports:
       - "8000:8000"

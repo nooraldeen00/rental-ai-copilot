@@ -1,7 +1,7 @@
 // frontend/src/app/services/api.ts
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export type Tier = 'A'|'B'|'C';
@@ -18,10 +18,48 @@ export type QuoteRequest = {
 
 export type QuoteItem = {
   name: string;
+  sku?: string;
   qty: number;
+  days?: number;
+  dailyRate?: number;
   unitPrice: number;
   subtotal: number;
 };
+
+// ============ Inventory Browser Types ============
+
+/**
+ * Represents a single inventory item with pricing info.
+ */
+export interface InventoryItem {
+  sku: string;
+  name: string;
+  location: string;
+  available: number;
+  dailyRate: number;
+  weeklyRate: number;
+  monthlyRate: number;
+  attributes?: Record<string, any>;
+}
+
+/**
+ * Represents a category of inventory items.
+ */
+export interface InventoryCategory {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  itemCount: number;
+  items: InventoryItem[];
+}
+
+/**
+ * Response from the /inventory/browse endpoint.
+ */
+export interface InventoryBrowseResponse {
+  categories: InventoryCategory[];
+}
 
 export interface QuoteRunResponse {
   run_id: number;
@@ -82,5 +120,52 @@ export class ApiService {
 
   getRun(runId: number) {
     return this.http.get(`${BASE}/runs/${runId}`);
+  }
+
+  /**
+   * Download the PDF quote for a given run.
+   * Triggers a browser download of the PDF file.
+   */
+  downloadQuotePdf(runId: number): Observable<Blob> {
+    return this.http.get(`${BASE}/quote/runs/${runId}/pdf`, {
+      responseType: 'blob',
+    }).pipe(
+      tap((blob) => {
+        // Create download link and trigger download
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `quote-${runId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      })
+    );
+  }
+
+  /**
+   * Fetch inventory categories and items for the browse modal.
+   * Returns all equipment grouped by category with pricing information.
+   */
+  browseInventory(): Observable<InventoryBrowseResponse> {
+    return this.http.get<InventoryBrowseResponse>(`${BASE}/inventory/browse`);
+  }
+
+  /**
+   * Convert text to speech using ElevenLabs Rachel voice.
+   * Returns an Observable of the audio Blob.
+   */
+  textToSpeech(text: string): Observable<Blob> {
+    return this.http.post(`${BASE}/tts/speak`, { text }, {
+      responseType: 'blob',
+    });
+  }
+
+  /**
+   * Check if TTS service is configured and available.
+   */
+  getTtsStatus(): Observable<{ configured: boolean; voice_name: string; provider: string }> {
+    return this.http.get<{ configured: boolean; voice_name: string; provider: string }>(`${BASE}/tts/status`);
   }
 }

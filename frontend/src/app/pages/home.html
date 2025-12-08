@@ -136,6 +136,10 @@
             Reset Form
           </button>
 
+          <button type="button" class="btn-browse" (click)="openInventoryBrowser()">
+            What Can I Rent?
+          </button>
+
           <span class="form-hint">
             Enterprise AI engine • Institutional pricing accuracy • Instant quote delivery
           </span>
@@ -210,6 +214,41 @@
 
       <!-- Result -->
       <ng-container *ngIf="result?.quote as q">
+        <!-- Action Buttons for PDF and Voice -->
+        <div class="btn-row" style="margin-bottom: 1rem;">
+          <button
+            class="btn-pdf"
+            (click)="onDownloadPdf()"
+            [disabled]="downloadingPdf"
+            type="button">
+            <span *ngIf="!downloadingPdf">Download PDF Quote</span>
+            <span *ngIf="downloadingPdf">
+              <span class="spinner"></span> Generating PDF...
+            </span>
+          </button>
+
+          <button
+            class="btn-voice"
+            (click)="onPlaySummary()"
+            [disabled]="!ttsSupported || !q.notes?.length"
+            [class.speaking]="isSpeaking"
+            [class.loading]="ttsLoading"
+            type="button"
+            [title]="ttsSupported ? 'Read AI notes aloud (ElevenLabs)' : 'Text-to-speech not supported'">
+            <span *ngIf="ttsLoading">
+              <span class="spinner"></span> Loading...
+            </span>
+            <span *ngIf="!ttsLoading && !isSpeaking">Play Summary</span>
+            <span *ngIf="!ttsLoading && isSpeaking">Stop</span>
+          </button>
+        </div>
+
+        <!-- PDF Error -->
+        <div *ngIf="pdfError" class="alert-warning">{{ pdfError }}</div>
+
+        <!-- TTS Error -->
+        <div *ngIf="ttsError" class="alert-warning">{{ ttsError }}</div>
+
         <!-- Prominent Total Card -->
         <div class="quote-total-card">
           <div class="total-card-header">
@@ -252,9 +291,10 @@
             <thead>
               <tr>
                 <th>Item</th>
-                <th style="text-align: right;">Qty</th>
-                <th style="text-align: right;">Unit</th>
-                <th style="text-align: right;">Total</th>
+                <th style="text-align: center;">Qty</th>
+                <th style="text-align: center;">Days</th>
+                <th style="text-align: right;">Daily Rate</th>
+                <th style="text-align: right;">Line Total</th>
               </tr>
             </thead>
             <tbody>
@@ -265,11 +305,14 @@
                     SKU: {{ item.sku }}
                   </div>
                 </td>
-                <td style="text-align: right;">
+                <td style="text-align: center;">
                   {{ item.qty }}
                 </td>
+                <td style="text-align: center;">
+                  {{ item.days || 1 }}
+                </td>
                 <td style="text-align: right;">
-                  ${{ item.unitPrice | number : '1.2-2' }}
+                  ${{ item.dailyRate || item.unitPrice | number : '1.2-2' }}
                 </td>
                 <td style="text-align: right;">
                   ${{ item.subtotal | number : '1.2-2' }}
@@ -309,3 +352,9 @@
     </section>
   </main>
 </div>
+
+<!-- Inventory Browser Modal -->
+<app-inventory-browser
+  *ngIf="showInventoryBrowser"
+  (closeModal)="closeInventoryBrowser()">
+</app-inventory-browser>

@@ -10,3 +10,5 @@ faiss-cpu
 numpy
 python-multipart
 cryptography
+reportlab
+httpx

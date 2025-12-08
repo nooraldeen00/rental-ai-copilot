@@ -92,6 +92,37 @@
           </div>
         </div>
 
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-3">
+          <button
+            class="btn-pdf"
+            (click)="onDownloadPdf()"
+            [disabled]="downloadingPdf"
+            type="button">
+            <span *ngIf="!downloadingPdf">Download PDF Quote</span>
+            <span *ngIf="downloadingPdf" class="inline-flex items-center gap-2">
+              <span class="spinner"></span> Generating PDF...
+            </span>
+          </button>
+
+          <button
+            class="btn-voice"
+            (click)="onPlaySummary()"
+            [disabled]="!ttsSupported || !result?.quote?.notes?.length"
+            [class.speaking]="isSpeaking"
+            type="button"
+            [title]="ttsSupported ? 'Read AI notes aloud' : 'Text-to-speech not supported in this browser'">
+            <span *ngIf="!isSpeaking">Play Summary</span>
+            <span *ngIf="isSpeaking">Stop</span>
+          </button>
+        </div>
+
+        <!-- PDF Error -->
+        <div *ngIf="pdfError" class="alert-warning">{{ pdfError }}</div>
+
+        <!-- TTS Error -->
+        <div *ngIf="ttsError" class="alert-warning">{{ ttsError }}</div>
+
         <div class="overflow-hidden rounded-xl border border-white/10">
           <table class="table">
             <thead class="bg-white/5">

@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Optional, Any, Dict, List
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -14,6 +14,7 @@ from backend.core.tracing import start_run, add_step, finish_run
 from backend.core.agent import run_quote_loop
 from backend.db.connect import SessionLocal
 from backend.core.logging_config import get_logger
+from backend.core.pdf_generator import generate_quote_pdf
 from backend.core.exceptions import (
     DatabaseError,
     ResourceNotFoundError,
@@ -28,17 +29,31 @@ logger = get_logger(__name__)
 # ---------- Helper: adapt internal quote → UI shape ----------
 
 def _adapt_quote_for_ui(raw: Dict[str, Any]) -> Dict[str, Any]:
-    line_items = raw.get("line_items", []) or []
+    # Support both "items" (new format from agent) and "line_items" (legacy format)
+    line_items = raw.get("items", []) or raw.get("line_items", []) or []
+    days = raw.get("days", 1)  # Get rental duration from quote
 
     items_ui: List[Dict[str, Any]] = []
     for li in line_items:
+        # Support both old field names (quantity, unit_price, extended) and new ones (qty, unitPrice, subtotal)
+        qty = li.get("qty") or li.get("quantity", 0)
+        unit_price = li.get("unitPrice") or li.get("unit_price", 0)
+        subtotal = li.get("subtotal") or li.get("extended", 0)
+
+        # Calculate daily rate if not provided
+        daily_rate = li.get("dailyRate") or li.get("daily_rate")
+        if not daily_rate and unit_price and days > 0:
+            daily_rate = unit_price / days
+
         items_ui.append(
             {
                 "sku": li.get("sku"),
                 "name": li.get("name"),
-                "qty": li.get("quantity"),
-                "unitPrice": li.get("unit_price"),
-                "subtotal": li.get("extended"),
+                "qty": qty,
+                "days": days,                        # Rental duration in days
+                "dailyRate": daily_rate,             # Base daily rate before multiplying by days
+                "unitPrice": unit_price,             # unit_price = daily_rate × days
+                "subtotal": subtotal,                # subtotal = qty × unit_price
             }
         )
 
@@ -388,5 +403,173 @@ def get_run(run_id: int, request: Request) -> Dict[str, Any]:
         )
         raise DatabaseError(
             "Failed to fetch run history",
+            details={"request_id": request_id, "run_id": run_id, "error": str(e)},
+        )
+
+
+@router.get("/runs/{run_id}/pdf")
+def download_quote_pdf(run_id: int, request: Request) -> Response:
+    """
+    Generate and download a PDF quote for the given run_id.
+    Returns a PDF file with proper content-disposition for download.
+    """
+    request_id = getattr(request.state, "request_id", "unknown")
+
+    logger.info(
+        f"Generating PDF quote for run {run_id}",
+        extra={"extra_fields": {"request_id": request_id, "run_id": run_id}},
+    )
+
+    try:
+        with SessionLocal() as s:
+            # Fetch the run metadata
+            run_row = (
+                s.execute(
+                    text(
+                        """
+                        SELECT input_text, created_at
+                        FROM runs
+                        WHERE id = :rid
+                        """
+                    ),
+                    {"rid": run_id},
+                )
+                .mappings()
+                .first()
+            )
+
+            if not run_row:
+                logger.warning(
+                    f"Run {run_id} not found for PDF generation",
+                    extra={"extra_fields": {"request_id": request_id, "run_id": run_id}},
+                )
+                raise ResourceNotFoundError("Run", run_id)
+
+            # Fetch the latest quote data
+            step_row = (
+                s.execute(
+                    text(
+                        """
+                        SELECT input_json, output_json
+                        FROM steps
+                        WHERE run_id = :rid
+                          AND kind IN ('policy_guardrails', 'feedback_apply')
+                        ORDER BY id DESC
+                        LIMIT 1
+                        """
+                    ),
+                    {"rid": run_id},
+                )
+                .mappings()
+                .first()
+            )
+
+            if not step_row:
+                logger.warning(
+                    f"No quote data found for run {run_id}",
+                    extra={"extra_fields": {"request_id": request_id, "run_id": run_id}},
+                )
+                raise ResourceNotFoundError("Quote data for run", run_id)
+
+            # Parse quote data
+            output_raw = step_row["output_json"]
+            if isinstance(output_raw, (str, bytes)):
+                quote_data = json.loads(output_raw)
+            else:
+                quote_data = output_raw or {}
+
+            # Try to extract customer info from the normalize step
+            normalize_row = (
+                s.execute(
+                    text(
+                        """
+                        SELECT input_json, output_json
+                        FROM steps
+                        WHERE run_id = :rid
+                          AND kind = 'normalize'
+                        ORDER BY id ASC
+                        LIMIT 1
+                        """
+                    ),
+                    {"rid": run_id},
+                )
+                .mappings()
+                .first()
+            )
+
+            customer_tier = "C"
+            location = ""
+            start_date = ""
+            end_date = ""
+
+            if normalize_row:
+                input_raw = normalize_row["input_json"]
+                if isinstance(input_raw, (str, bytes)):
+                    input_data = json.loads(input_raw)
+                else:
+                    input_data = input_raw or {}
+
+                # The payload is nested under "payload" key in the normalize step
+                payload_data = input_data.get("payload", input_data)
+
+                customer_tier = payload_data.get("customer_tier", "C")
+                location = payload_data.get("location") or payload_data.get("zip") or ""
+                start_date = payload_data.get("start_date") or ""
+                end_date = payload_data.get("end_date") or ""
+
+            # Adapt quote for PDF (same shape as UI expects)
+            ui_quote = _adapt_quote_for_ui(quote_data)
+
+    except SQLAlchemyError as e:
+        logger.error(
+            f"Database error fetching data for PDF: {str(e)}",
+            exc_info=True,
+            extra={"extra_fields": {"request_id": request_id, "run_id": run_id}},
+        )
+        raise DatabaseError(
+            "Failed to fetch quote data for PDF",
+            details={"request_id": request_id, "run_id": run_id, "error": str(e)},
+        )
+
+    # Generate PDF
+    try:
+        pdf_bytes = generate_quote_pdf(
+            run_id=run_id,
+            quote=ui_quote,
+            customer_tier=customer_tier,
+            location=location,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        logger.info(
+            f"PDF generated successfully for run {run_id}",
+            extra={
+                "extra_fields": {
+                    "request_id": request_id,
+                    "run_id": run_id,
+                    "pdf_size_bytes": len(pdf_bytes),
+                }
+            },
+        )
+
+        # Return PDF with proper headers
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="quote-{run_id}.pdf"',
+                "Content-Length": str(len(pdf_bytes)),
+            },
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error generating PDF for run {run_id}: {str(e)}",
+            exc_info=True,
+            extra={"extra_fields": {"request_id": request_id, "run_id": run_id}},
+        )
+        raise QuoteGenerationError(
+            "Failed to generate PDF quote",
             details={"request_id": request_id, "run_id": run_id, "error": str(e)},
         )

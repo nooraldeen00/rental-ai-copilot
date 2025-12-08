@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.quote import router as quote_router
 from backend.routes.runs import router as runs_router
+from backend.routes.inventory import router as inventory_router
+from backend.routes.tts import router as tts_router
 from backend.core.logging_config import setup_logging, get_logger
 from backend.core.middleware import RequestLoggingMiddleware
 from backend.core.exceptions import (
@@ -51,6 +53,8 @@ app.add_middleware(
 # Include routers
 app.include_router(quote_router)
 app.include_router(runs_router)
+app.include_router(inventory_router)
+app.include_router(tts_router)
 
 # Startup event
 @app.on_event("startup")
