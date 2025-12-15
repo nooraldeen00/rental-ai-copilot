@@ -49,8 +49,8 @@ RentalAI Copilot deploys an autonomous AI agent that handles the entire workflow
 ### 1. Clone & Configure
 
 ```bash
-git clone https://github.com/your-username/point-of-rental-quote-copilot.git
-cd point-of-rental-quote-copilot
+git clone https://github.com/nooraldeen00/rental-ai-copilot.git
+cd rental-ai-copilot
 
 # Copy environment template and add your OpenAI key
 cp .env.example .env
@@ -252,7 +252,7 @@ See [`docs/API.md`](docs/API.md) for complete endpoint documentation.
 ## Project Structure
 
 ```
-point-of-rental-quote-copilot/
+rental-ai-copilot/
 ├── backend/
 │   ├── core/
 │   │   ├── agent.py              # Main quote orchestration
