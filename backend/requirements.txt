@@ -12,3 +12,4 @@ python-multipart
 cryptography
 reportlab
 httpx
+pytest

@@ -6,10 +6,20 @@ import { environment } from '../../environments/environment';
 
 export type Tier = 'A'|'B'|'C';
 
+// Service location metadata for the dropdown selection
+export interface ServiceLocationMeta {
+  zone: 'local' | 'regional' | 'extended';
+  region: string;
+}
+
 export type QuoteRequest = {
   request_text: string;
   customer_tier: Tier;
-  location: string;
+  location: string;  // Legacy free-text location field
+  // New location resolution fields
+  selectedServiceLocationId?: string;      // ID of selected service location (e.g., "dallas-tx")
+  selectedServiceLocationLabel?: string;   // Display label (e.g., "Dallas, TX")
+  selectedServiceLocationMeta?: ServiceLocationMeta;  // Zone/region metadata
   zip?: string;
   start_date?: string;
   end_date?: string;
@@ -26,6 +36,17 @@ export type QuoteItem = {
   unitPrice: number;
   subtotal: number;
 };
+
+// Resolved location information from backend
+export interface ResolvedLocation {
+  location_free_text: string | null;
+  location_selected: string | null;
+  location_selected_id: string | null;
+  location_final: string;
+  location_conflict: boolean;
+  conflict_message: string | null;
+  rationale: string;
+}
 
 // ============ Inventory Browser Types ============
 
@@ -69,6 +90,7 @@ export interface QuoteRunResponse {
     total?: number;
     items?: QuoteItem[];
     notes?: string[];
+    resolved_location?: ResolvedLocation;
   };
   // Added so the template `result.completedAt` is valid
   completedAt?: string; // e.g. "2025-11-13T18:05:58Z" or formatted string
@@ -87,6 +109,10 @@ export class ApiService {
     message: req.request_text,
     customer_tier: req.customer_tier,
     location: req.location,
+    // New location resolution fields
+    selected_service_location_id: req.selectedServiceLocationId,
+    selected_service_location_label: req.selectedServiceLocationLabel,
+    selected_service_location_meta: req.selectedServiceLocationMeta,
     zip: req.zip,
     start_date: req.start_date,
     end_date: req.end_date,
@@ -112,6 +138,10 @@ export class ApiService {
 
   if (!payload.zip) delete payload.zip;
   if (!payload.language) delete payload.language;
+  // Clean up empty location fields
+  if (!payload.selected_service_location_id) delete payload.selected_service_location_id;
+  if (!payload.selected_service_location_label) delete payload.selected_service_location_label;
+  if (!payload.selected_service_location_meta) delete payload.selected_service_location_meta;
   Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
   return this.http.post<QuoteRunResponse>(`${BASE}/quote/run`, payload);

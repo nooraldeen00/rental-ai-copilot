@@ -1,10 +1,26 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgIf, NgFor, DecimalPipe } from '@angular/common';
-import { ApiService } from '../services/api';
+import { ApiService, ServiceLocationMeta } from '../services/api';
 import { TtsService } from '../services/tts.service';
 import { LanguageService } from '../services/language.service';
 import { InventoryBrowserComponent } from '../components/inventory-browser';
+
+// Service locations (same as in quote-form.ts)
+interface ServiceLocation {
+  id: string;
+  label: string;
+  zone: 'local' | 'regional' | 'extended';
+  region: string;
+}
+
+const SERVICE_LOCATIONS: ServiceLocation[] = [
+  { id: 'plano-tx', label: 'Plano, TX', zone: 'local', region: 'DFW Metro' },
+  { id: 'dallas-tx', label: 'Dallas, TX', zone: 'local', region: 'DFW Metro' },
+  { id: 'fort-worth-tx', label: 'Fort Worth, TX', zone: 'local', region: 'DFW Metro' },
+  { id: 'arlington-tx', label: 'Arlington, TX', zone: 'local', region: 'DFW Metro' },
+  { id: 'southlake-tx', label: 'Southlake, TX', zone: 'local', region: 'DFW Metro' },
+];
 
 // Web Speech API types
 declare global {
@@ -26,6 +42,7 @@ export class HomeComponent {
     request_text: '',
     customer_tier: 'B',
     location: '',
+    selectedServiceLocationId: '',  // New: dropdown selection ID
     seed: '',
     start_date: '',
     end_date: '',
@@ -130,10 +147,20 @@ export class HomeComponent {
     return;
     */
 
-    //  real backend - include language for AI summary
+    //  real backend - include language for AI summary and service location metadata
+    const selectedLocation = this.form.selectedServiceLocationId
+      ? SERVICE_LOCATIONS.find(loc => loc.id === this.form.selectedServiceLocationId)
+      : null;
+
     const requestWithLanguage = {
       ...this.form,
-      language: this.langService.selectedLanguage
+      language: this.langService.selectedLanguage,
+      // Add service location metadata if a location is selected
+      selectedServiceLocationLabel: selectedLocation?.label,
+      selectedServiceLocationMeta: selectedLocation ? {
+        zone: selectedLocation.zone,
+        region: selectedLocation.region
+      } : undefined
     };
 
     this.api.runQuote(requestWithLanguage).subscribe({
@@ -154,6 +181,7 @@ export class HomeComponent {
       request_text: '',
       customer_tier: 'B',
       location: '',
+      selectedServiceLocationId: '',
       seed: '',
       start_date: '',
       end_date: '',

@@ -34,6 +34,22 @@ declare global {
   }
 }
 
+// Available service locations (from database)
+export interface ServiceLocation {
+  id: string;
+  label: string;
+  zone: 'local' | 'regional' | 'extended';
+  region: string;
+}
+
+export const SERVICE_LOCATIONS: ServiceLocation[] = [
+  { id: 'plano-tx', label: 'Plano, TX', zone: 'local', region: 'DFW Metro' },
+  { id: 'dallas-tx', label: 'Dallas, TX', zone: 'local', region: 'DFW Metro' },
+  { id: 'fort-worth-tx', label: 'Fort Worth, TX', zone: 'local', region: 'DFW Metro' },
+  { id: 'arlington-tx', label: 'Arlington, TX', zone: 'local', region: 'DFW Metro' },
+  { id: 'southlake-tx', label: 'Southlake, TX', zone: 'local', region: 'DFW Metro' },
+];
+
 @Component({
   selector: 'app-quote-form',
   standalone: true,
@@ -44,10 +60,14 @@ declare global {
 export class QuoteFormComponent {
   @Output() submitted = new EventEmitter<any>();
 
+  // Available service locations for dropdown
+  serviceLocations = SERVICE_LOCATIONS;
+
   model = {
     request_text: 'Need 2 light towers in Dallas Fri–Sun',
     customer_tier: 'B' as 'A' | 'B' | 'C',
-    location: 'Dallas',
+    location: 'Dallas',  // Legacy field - free text from request
+    selectedServiceLocationId: '' as string,  // New: dropdown selection ID
     zip: '',
     start_date: '',
     end_date: '',
@@ -97,9 +117,26 @@ export class QuoteFormComponent {
     }
   }
 
+  // Get the selected service location object
+  getSelectedServiceLocation(): ServiceLocation | null {
+    if (!this.model.selectedServiceLocationId) return null;
+    return this.serviceLocations.find(loc => loc.id === this.model.selectedServiceLocationId) || null;
+  }
+
   submit() {
     const payload: any = { ...this.model };
     if (payload.seed === '') delete payload.seed;
+
+    // Add selected service location metadata
+    const selectedLocation = this.getSelectedServiceLocation();
+    if (selectedLocation) {
+      payload.selectedServiceLocationLabel = selectedLocation.label;
+      payload.selectedServiceLocationMeta = {
+        zone: selectedLocation.zone,
+        region: selectedLocation.region
+      };
+    }
+
     this.submitted.emit(payload);
   }
 }

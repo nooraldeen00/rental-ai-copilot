@@ -126,6 +126,22 @@ def generate_quote_pdf(
     ))
 
     styles.add(ParagraphStyle(
+        name='TermsItem',
+        fontSize=7,
+        textColor=colors.HexColor(TEXT_MED),
+        spaceBefore=2,
+        spaceAfter=2,
+        leftIndent=12,
+    ))
+
+    styles.add(ParagraphStyle(
+        name='TermsNumber',
+        fontSize=7,
+        textColor=colors.HexColor(PRIMARY),
+        fontName='Helvetica-Bold',
+    ))
+
+    styles.add(ParagraphStyle(
         name='Footer',
         fontSize=7,
         textColor=colors.HexColor(TEXT_LIGHT),
@@ -330,13 +346,59 @@ def generate_quote_pdf(
 
         story.append(Spacer(1, 8))
 
-    # ============ TERMS - Compact single line ============
-    story.append(Paragraph("TERMS", styles['SectionTitle']))
+    # ============ TERMS & CONDITIONS ============
+    story.append(Paragraph("TERMS & CONDITIONS", styles['SectionTitle']))
 
-    terms_text = "Quote valid 30 days • Prices subject to availability • Credit card required • Damage waiver included • 48hr cancellation policy"
-    story.append(Paragraph(terms_text, styles['Terms']))
+    # Professional terms list
+    terms_list = [
+        ("Quote Validity", "This quote is valid for 30 days from the date of issuance."),
+        ("Reservation & Deposit", "25% non-refundable deposit required. Balance due upon delivery."),
+        ("Cancellation Policy", "7+ days: full deposit refund. Within 7 days: deposit forfeited."),
+        ("Delivery & Pickup", "Times are estimates. Clear access required. Additional charges may apply."),
+        ("Equipment Condition", "Customer responsible from delivery to pickup. Damage charged at replacement cost."),
+        ("Damage Waiver", "Covers accidental damage up to $1,000/item. Excludes intentional damage/theft."),
+        ("Setup & Breakdown", "Basic delivery is drop-off only. Setup services available at additional cost."),
+        ("Weather Policy", "Customer assumes responsibility for weather-related decisions."),
+        ("Extension Policy", "24-hour advance notice required. Late returns: 1.5x daily rate."),
+        ("Liability", "Customer agrees to indemnify rental company from claims arising from use."),
+    ]
 
-    story.append(Spacer(1, 12))
+    # Create terms table for better formatting
+    terms_data = []
+    term_num_style = ParagraphStyle(
+        'TermNum',
+        fontSize=7,
+        textColor=colors.HexColor(PRIMARY),
+        fontName='Helvetica-Bold',
+    )
+    term_text_style = ParagraphStyle(
+        'TermText',
+        fontSize=7,
+        textColor=colors.HexColor(TEXT_MED),
+    )
+
+    for i, (title, desc) in enumerate(terms_list, 1):
+        terms_data.append([
+            Paragraph(f"{i}.", term_num_style),
+            Paragraph(f"<b>{title}:</b> {desc}", term_text_style)
+        ])
+
+    terms_table = Table(terms_data, colWidths=[0.25 * inch, 7.0 * inch])
+    terms_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+
+    story.append(terms_table)
+    story.append(Spacer(1, 6))
+
+    # Terms footer
+    terms_footer = "By proceeding with this quote, customer acknowledges and agrees to the above terms."
+    story.append(Paragraph(terms_footer, styles['Terms']))
+    story.append(Spacer(1, 8))
 
     # ============ FOOTER ============
     footer_text = f"RentalAI Copilot • Quote #{run_id} • Generated {generated_date} at {generated_time} • quotes@rentalai.demo"

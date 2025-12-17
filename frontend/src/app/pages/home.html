@@ -87,12 +87,18 @@
 
           <div>
             <label class="field-label">Service Location</label>
-            <input
-              class="input"
-              [(ngModel)]="form.location"
-              name="location"
-              placeholder="Dallas, TX"
-            />
+            <select
+              class="select"
+              [(ngModel)]="form.selectedServiceLocationId"
+              name="selectedServiceLocationId"
+            >
+              <option value="">-- Select Location --</option>
+              <option value="plano-tx">Plano, TX</option>
+              <option value="dallas-tx">Dallas, TX</option>
+              <option value="fort-worth-tx">Fort Worth, TX</option>
+              <option value="arlington-tx">Arlington, TX</option>
+              <option value="southlake-tx">Southlake, TX</option>
+            </select>
           </div>
 
           <div>
@@ -268,6 +274,12 @@
         <!-- TTS Error -->
         <div *ngIf="ttsError" class="alert-warning">{{ ttsError }}</div>
 
+        <!-- Location Conflict Warning -->
+        <div *ngIf="q.resolved_location?.location_conflict" class="alert-location-conflict">
+          <span class="conflict-icon">⚠️</span>
+          <span class="conflict-message">{{ q.resolved_location?.conflict_message }}</span>
+        </div>
+
         <!-- Prominent Total Card -->
         <div class="quote-total-card">
           <div class="total-card-header">
@@ -294,9 +306,10 @@
             </div>
           </div>
 
-          <div class="total-location" *ngIf="form.location">
+          <div class="total-location" *ngIf="q.resolved_location?.location_final">
             <span>📍</span>
-            <span>{{ form.location }}</span>
+            <span>{{ q.resolved_location.location_final }}</span>
+            <span *ngIf="q.resolved_location.location_conflict" class="location-conflict-badge">⚠️ Please confirm</span>
           </div>
         </div>
 
@@ -365,6 +378,32 @@
             <ul class="ai-notes-list">
               <li *ngFor="let note of q.notes">{{ note }}</li>
             </ul>
+          </div>
+        </div>
+
+        <!-- Terms & Conditions Section -->
+        <div class="terms-section">
+          <div class="terms-header">
+            <span class="terms-icon">📜</span>
+            <span>TERMS & CONDITIONS</span>
+          </div>
+          <div class="terms-content">
+            <ol class="terms-list">
+              <li><strong>Quote Validity:</strong> This quote is valid for 30 days from the date of issuance unless otherwise specified.</li>
+              <li><strong>Reservation & Deposit:</strong> A 25% non-refundable deposit is required to confirm your reservation. Balance is due upon delivery.</li>
+              <li><strong>Cancellation Policy:</strong> Cancellations made 7+ days prior to rental date receive a full refund of deposit. Cancellations within 7 days forfeit the deposit.</li>
+              <li><strong>Delivery & Pickup:</strong> Delivery and pickup times are estimates. Customer must provide clear access to delivery location. Additional charges may apply for stairs, long carries, or difficult access.</li>
+              <li><strong>Equipment Condition:</strong> Customer is responsible for equipment from delivery to pickup. Damaged, lost, or stolen items will be charged at replacement cost.</li>
+              <li><strong>Damage Waiver:</strong> Optional damage waiver covers normal wear and accidental damage up to $1,000 per item. Intentional damage, theft, and negligence are not covered.</li>
+              <li><strong>Setup & Breakdown:</strong> Basic delivery includes drop-off only. Setup and breakdown services available at additional cost upon request.</li>
+              <li><strong>Weather Policy:</strong> Customer assumes responsibility for weather-related decisions. Tents and outdoor equipment should be secured per manufacturer guidelines.</li>
+              <li><strong>Extension Policy:</strong> Rental extensions must be requested 24 hours in advance and are subject to availability. Late returns incur a 1.5x daily rate.</li>
+              <li><strong>Liability:</strong> Customer agrees to indemnify and hold harmless the rental company from any claims arising from equipment use.</li>
+            </ol>
+            <div class="terms-footer">
+              <p>By proceeding with this quote, customer acknowledges and agrees to the above terms and conditions.</p>
+              <p class="terms-contact">Questions? Contact us at <strong>rentals@example.com</strong> or <strong>(214) 555-0100</strong></p>
+            </div>
           </div>
         </div>
       </ng-container>

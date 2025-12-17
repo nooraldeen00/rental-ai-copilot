@@ -13,7 +13,7 @@
   </div>
   <textarea [(ngModel)]="model.request_text" name="request_text" rows="3" style="width:100%;" [placeholder]="isListening ? 'Speak now...' : ''"></textarea>
 
-  <div style="display:flex; gap:12px; margin-top:8px;">
+  <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap;">
     <div>
       <label>Tier</label><br/>
       <select [(ngModel)]="model.customer_tier" name="customer_tier">
@@ -21,8 +21,11 @@
       </select>
     </div>
     <div>
-      <label>Location</label><br/>
-      <input [(ngModel)]="model.location" name="location" placeholder="Dallas"/>
+      <label>Service Location</label><br/>
+      <select [(ngModel)]="model.selectedServiceLocationId" name="selectedServiceLocationId">
+        <option value="">-- Select Location --</option>
+        <option *ngFor="let loc of serviceLocations" [value]="loc.id">{{ loc.label }}</option>
+      </select>
     </div>
     <div>
       <label>Seed</label><br/>

@@ -17,9 +17,12 @@ export interface TtsState {
 export class TtsService {
   private audio: HTMLAudioElement | null = null;
   private currentAudioUrl: string | null = null;
-  private _isSupported = true; // ElevenLabs is always supported if backend is running
+  private _isSupported = true;
   private _isSpeaking = false;
   private _isLoading = false;
+  private _useBrowserTts = false; // Fallback to browser TTS if ElevenLabs fails
+  private browserSpeechSynthesis: SpeechSynthesis | null = null;
+  private currentUtterance: SpeechSynthesisUtterance | null = null;
 
   constructor(private api: ApiService) {
     // Check if Audio is supported in browser
@@ -27,6 +30,11 @@ export class TtsService {
       this._isSupported = true;
     } else {
       this._isSupported = false;
+    }
+
+    // Check for browser Speech Synthesis API (fallback)
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      this.browserSpeechSynthesis = window.speechSynthesis;
     }
   }
 
@@ -64,7 +72,7 @@ export class TtsService {
   }
 
   /**
-   * Speak the given text using ElevenLabs voice.
+   * Speak the given text using ElevenLabs voice (with browser TTS fallback).
    *
    * @param text The text to speak
    * @param onEnd Callback when speech finishes
@@ -121,7 +129,8 @@ export class TtsService {
           this._isSpeaking = false;
           this._isLoading = false;
           this.cleanup();
-          onError?.('Failed to play audio.');
+          // Try browser TTS as fallback
+          this.speakWithBrowserTts(cleanText, onEnd, onError, language);
         };
 
         // Start playback
@@ -130,24 +139,17 @@ export class TtsService {
           this._isSpeaking = false;
           this._isLoading = false;
           this.cleanup();
-          onError?.('Failed to start audio playback.');
+          // Try browser TTS as fallback
+          this.speakWithBrowserTts(cleanText, onEnd, onError, language);
         });
       },
       error: (err) => {
         console.error('TTS API error:', err);
         this._isLoading = false;
 
-        // Provide more helpful error messages
-        const status = err.status;
-        if (status === 503) {
-          onError?.('Text-to-speech not configured. Please set ELEVENLABS_API_KEY.');
-        } else if (status === 504) {
-          onError?.('Text-to-speech service timeout. Please try again.');
-        } else if (status === 502) {
-          onError?.('Text-to-speech service unavailable. Please try again later.');
-        } else {
-          onError?.('Failed to generate speech. Please try again.');
-        }
+        // Try browser TTS as fallback
+        console.log('Falling back to browser TTS...');
+        this.speakWithBrowserTts(cleanText, onEnd, onError, language);
       },
     });
 
@@ -155,13 +157,136 @@ export class TtsService {
   }
 
   /**
+   * Fallback: Speak using browser's built-in Speech Synthesis API.
+   */
+  private speakWithBrowserTts(
+    text: string,
+    onEnd?: () => void,
+    onError?: (error: string) => void,
+    language?: string
+  ): void {
+    console.log('Using browser TTS fallback...');
+
+    if (!this.browserSpeechSynthesis) {
+      console.error('Browser speech synthesis not available');
+      onError?.('Text-to-speech is not available in this browser.');
+      return;
+    }
+
+    const startSpeaking = () => {
+      try {
+        // Cancel any ongoing speech
+        this.browserSpeechSynthesis!.cancel();
+
+        // Create utterance
+        const utterance = new SpeechSynthesisUtterance(text);
+        this.currentUtterance = utterance;
+
+        // Set language
+        utterance.lang = language || 'en-US';
+
+        // Configure voice settings
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        // Try to find a good voice
+        const voices = this.browserSpeechSynthesis!.getVoices();
+        console.log(`Available voices: ${voices.length}`);
+
+        if (voices.length > 0) {
+          const langCode = (language || 'en-US').split('-')[0];
+          // Prefer voices that match the language
+          let matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(langCode.toLowerCase()));
+          // Fallback to any English voice
+          if (!matchingVoice) {
+            matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith('en'));
+          }
+          // Fallback to first available voice
+          if (!matchingVoice) {
+            matchingVoice = voices[0];
+          }
+          if (matchingVoice) {
+            utterance.voice = matchingVoice;
+            console.log(`Using voice: ${matchingVoice.name} (${matchingVoice.lang})`);
+          }
+        }
+
+        utterance.onstart = () => {
+          console.log('Browser TTS started');
+          this._isSpeaking = true;
+          this._isLoading = false;
+        };
+
+        utterance.onend = () => {
+          console.log('Browser TTS ended');
+          this._isSpeaking = false;
+          this.currentUtterance = null;
+          onEnd?.();
+        };
+
+        utterance.onerror = (event) => {
+          console.error('Browser TTS error:', event.error);
+          this._isSpeaking = false;
+          this._isLoading = false;
+          this.currentUtterance = null;
+          // Don't show error for 'canceled' - that's intentional
+          if (event.error !== 'canceled') {
+            onError?.('Speech synthesis failed. Please try again.');
+          }
+        };
+
+        // Start speaking
+        this._isLoading = false;
+        this._isSpeaking = true;
+        this.browserSpeechSynthesis!.speak(utterance);
+        console.log('Browser TTS speak() called');
+
+      } catch (err) {
+        console.error('Browser TTS exception:', err);
+        this._isLoading = false;
+        this._isSpeaking = false;
+        onError?.('Speech synthesis failed. Please try again.');
+      }
+    };
+
+    // Voices may not be loaded immediately - wait for them
+    const voices = this.browserSpeechSynthesis.getVoices();
+    if (voices.length > 0) {
+      startSpeaking();
+    } else {
+      // Wait for voices to load
+      console.log('Waiting for voices to load...');
+      this.browserSpeechSynthesis.onvoiceschanged = () => {
+        console.log('Voices loaded');
+        startSpeaking();
+      };
+      // Also try after a short delay as backup
+      setTimeout(() => {
+        if (!this._isSpeaking && !this.currentUtterance) {
+          console.log('Starting speech after timeout');
+          startSpeaking();
+        }
+      }, 100);
+    }
+  }
+
+  /**
    * Stop current speech playback.
    */
   stop(): void {
+    // Stop HTML5 audio
     if (this.audio) {
       this.audio.pause();
       this.audio.currentTime = 0;
     }
+
+    // Stop browser speech synthesis
+    if (this.browserSpeechSynthesis) {
+      this.browserSpeechSynthesis.cancel();
+    }
+    this.currentUtterance = null;
+
     this._isSpeaking = false;
     this._isLoading = false;
     this.cleanup();

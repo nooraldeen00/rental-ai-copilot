@@ -14,6 +14,7 @@ from backend.core.tracing import add_step
 from backend.core.logging_config import get_logger
 from backend.core.exceptions import DatabaseError, AIServiceError, QuoteGenerationError
 from backend.core.item_parser import parse_items_from_message, extract_duration_hint
+from backend.core.location_resolver import resolve_location
 
 # Load .env so OPENAI_API_KEY is available
 load_dotenv()
@@ -318,11 +319,35 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
         extra={"extra_fields": {"run_id": run_id, "days": days}},
     )
 
+    # Resolve location from multiple sources
+    resolved_loc = resolve_location(
+        request_text=msg,
+        selected_location_id=payload.get("selected_service_location_id"),
+        selected_location_label=payload.get("selected_service_location_label"),
+        selected_location_meta=payload.get("selected_service_location_meta"),
+        postal_code=payload.get("zip"),
+    )
+    logger.info(
+        f"Location resolved for run {run_id}: final='{resolved_loc.location_final}', conflict={resolved_loc.location_conflict}",
+        extra={"extra_fields": {
+            "run_id": run_id,
+            "location_free_text": resolved_loc.location_free_text,
+            "location_selected": resolved_loc.location_selected,
+            "location_final": resolved_loc.location_final,
+            "location_conflict": resolved_loc.location_conflict,
+        }}
+    )
+
     add_step(
         run_id,
         "normalize",
         {"payload": payload},
-        {"items": items, "days": days, "tier": tier},
+        {
+            "items": items,
+            "days": days,
+            "tier": tier,
+            "resolved_location": resolved_loc.model_dump(),
+        },
         0,
     )
 
@@ -463,12 +488,25 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
 Generate a concise, professional explanation of this quote that:
 1. Acknowledges what the customer requested
 2. Briefly explains the equipment provided
-3. Mentions tier discount if applicable (but keep it subtle and professional)
-4. Sounds warm, competent, and trustworthy - like a CSR from a high-end service company
+3. Mentions the service location for delivery
+4. Mentions tier discount if applicable (but keep it subtle and professional)
+5. If there's a location mismatch (customer mentioned one location but selected another), politely note that you'll deliver to the selected location
+6. Sounds warm, competent, and trustworthy - like a CSR from a high-end service company
 
 IMPORTANT: You MUST write your response entirely in {target_language}. Do not use English unless the target language is English.
 
 Keep it to 2-3 sentences maximum. Use professional but approachable language. Do not mention SKUs, internal codes, or technical calculation details."""
+
+        # Build location context for AI prompt
+        location_context_parts = []
+        if resolved_loc.location_free_text:
+            location_context_parts.append(f"Customer mentioned: {resolved_loc.location_free_text}")
+        if resolved_loc.location_selected:
+            location_context_parts.append(f"Selected service location: {resolved_loc.location_selected}")
+        location_context_parts.append(f"Canonical service location for pricing: {resolved_loc.location_final}")
+        if resolved_loc.location_conflict:
+            location_context_parts.append("NOTE: Location selection overrides free-text for pricing. Please confirm with customer.")
+        location_context = "\n".join(location_context_parts)
 
         user_prompt = f"""Customer request: "{user_msg}"
 
@@ -478,6 +516,9 @@ Customer tier: {tier_name} (tier {tier})
 Discount applied: {quote['discount_pct']}%
 Subtotal before discount: ${quote['subtotal_before_discount']:.2f}
 Final total: ${quote['total']:.2f}
+
+Location Information:
+{location_context}
 
 Remember: Write your response in {target_language}."""
 
@@ -532,6 +573,17 @@ Remember: Write your response in {target_language}."""
             notes.append(labels["duration_note"].format(days=days))
 
     quote["notes"] = notes
+
+    # Add resolved location to quote response
+    quote["resolved_location"] = {
+        "location_free_text": resolved_loc.location_free_text,
+        "location_selected": resolved_loc.location_selected,
+        "location_selected_id": resolved_loc.location_selected_id,
+        "location_final": resolved_loc.location_final,
+        "location_conflict": resolved_loc.location_conflict,
+        "conflict_message": resolved_loc.conflict_message,
+        "rationale": resolved_loc.rationale,
+    }
 
     logger.info(
         f"Quote generation loop completed successfully for run {run_id}",

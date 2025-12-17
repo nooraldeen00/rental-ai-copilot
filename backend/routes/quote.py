@@ -66,6 +66,8 @@ def _adapt_quote_for_ui(raw: Dict[str, Any]) -> Dict[str, Any]:
         "total": raw.get("total", 0.0),
         # optional human-facing notes if you add them later
         "notes": raw.get("notes", []),
+        # Resolved location information for UI
+        "resolved_location": raw.get("resolved_location"),
     }
 
 
@@ -146,6 +148,12 @@ def run_quote(req: QuoteRunPayload, request: Request) -> Dict[str, Any]:
         "end_date": req.end_date,
         "message": req.message,
         "items": [i.model_dump() for i in (req.items or [])],
+        # New location resolution fields
+        "selected_service_location_id": req.selected_service_location_id,
+        "selected_service_location_label": req.selected_service_location_label,
+        "selected_service_location_meta": req.selected_service_location_meta.model_dump() if req.selected_service_location_meta else None,
+        # Language for AI generation
+        "language": req.language,
     }
 
     try:
