@@ -4,6 +4,14 @@
       <div class="header-top-line">
         <span class="header-dot"></span>
         <span>Enterprise Quoting Intelligence Platform</span>
+        <select
+          class="lang-select"
+          [(ngModel)]="langService.selectedLanguage"
+          name="globalLanguage">
+          <option *ngFor="let lang of langService.languages" [value]="lang.code">
+            {{ lang.flag }} {{ lang.label }}
+          </option>
+        </select>
         <span class="verified-badge">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M10.5 3L4.5 9L1.5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -41,12 +49,23 @@
       <form class="form-section" (ngSubmit)="onSubmit()" #quoteForm="ngForm">
         <!-- Renter request -->
         <div>
-          <label class="field-label">Customer Requirements</label>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <label class="field-label" style="margin-bottom: 0;">Customer Requirements</label>
+            <button
+              type="button"
+              class="btn-speak"
+              (click)="toggleSpeechRecognition()"
+              [class.listening]="isListening"
+              [disabled]="!speechSupported"
+              [title]="!speechSupported ? 'Speech not supported' : (isListening ? 'Stop listening' : 'Speak your request')">
+              {{ isListening ? '🎤 Listening...' : '🎤 Speak' }}
+            </button>
+          </div>
           <textarea
             class="textarea"
             [(ngModel)]="form.request_text"
             name="request_text"
-            placeholder="Example: Need 50 white folding chairs and 5 60-inch round tables for corporate event, Friday through Sunday delivery in Dallas metro area. Tier B account."
+            [placeholder]="isListening ? 'Speak now...' : 'Example: Need 50 white folding chairs and 5 60-inch round tables for corporate event, Friday through Sunday delivery in Dallas metro area. Tier B account.'"
             required
           ></textarea>
         </div>

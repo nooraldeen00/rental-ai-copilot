@@ -64,16 +64,18 @@ export class TtsService {
   }
 
   /**
-   * Speak the given text using ElevenLabs Rachel voice.
+   * Speak the given text using ElevenLabs voice.
    *
    * @param text The text to speak
    * @param onEnd Callback when speech finishes
    * @param onError Callback on error
+   * @param language Optional language code (e.g., 'en-US', 'es-ES', 'ar-SA', 'ja-JP')
    */
   speak(
     text: string,
     onEnd?: () => void,
-    onError?: (error: string) => void
+    onError?: (error: string) => void,
+    language?: string
   ): boolean {
     if (!this._isSupported) {
       onError?.('Audio playback is not supported in this browser.');
@@ -93,8 +95,8 @@ export class TtsService {
 
     this._isLoading = true;
 
-    // Call backend TTS API
-    this.api.textToSpeech(cleanText).subscribe({
+    // Call backend TTS API with language
+    this.api.textToSpeech(cleanText, language).subscribe({
       next: (audioBlob) => {
         this._isLoading = false;
 

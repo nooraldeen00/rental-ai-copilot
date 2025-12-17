@@ -191,3 +191,4 @@ ON DUPLICATE KEY UPDATE value_json = VALUES(value_json);
 -- Price Range: $1.50/day (chairs) to $550/day (excavator)
 -- Locations: Plano, Dallas, Fort Worth, Arlington, Southlake
 -- =====================================================================
+

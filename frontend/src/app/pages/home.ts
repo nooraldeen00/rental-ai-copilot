@@ -3,7 +3,16 @@ import { FormsModule } from '@angular/forms';
 import { NgIf, NgFor, DecimalPipe } from '@angular/common';
 import { ApiService } from '../services/api';
 import { TtsService } from '../services/tts.service';
+import { LanguageService } from '../services/language.service';
 import { InventoryBrowserComponent } from '../components/inventory-browser';
+
+// Web Speech API types
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
 
 @Component({
   selector: 'app-home',
@@ -40,7 +49,54 @@ export class HomeComponent {
   // Inventory browser state
   showInventoryBrowser = false;
 
-  constructor(private api: ApiService, private tts: TtsService) {}
+  // Speech recognition state
+  isListening = false;
+  speechSupported = false;
+  private recognition: any;
+
+  constructor(
+    private api: ApiService,
+    private tts: TtsService,
+    public langService: LanguageService
+  ) {
+    // Initialize speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      this.speechSupported = true;
+      this.recognition = new SpeechRecognition();
+      this.recognition.continuous = false;
+      this.recognition.interimResults = false;
+      this.recognition.lang = this.langService.selectedLanguage;
+
+      this.recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        this.form.request_text = transcript;
+        this.isListening = false;
+      };
+
+      this.recognition.onerror = () => {
+        this.isListening = false;
+      };
+
+      this.recognition.onend = () => {
+        this.isListening = false;
+      };
+    }
+  }
+
+  toggleSpeechRecognition() {
+    if (!this.speechSupported) return;
+
+    if (this.isListening) {
+      this.recognition.stop();
+      this.isListening = false;
+    } else {
+      this.recognition.lang = this.langService.selectedLanguage;
+      this.form.request_text = '';
+      this.recognition.start();
+      this.isListening = true;
+    }
+  }
 
   get ttsSupported(): boolean {
     return this.tts.isSupported;
@@ -165,7 +221,8 @@ export class HomeComponent {
         this.ttsError = error;
         this.isSpeaking = false;
         this.ttsLoading = false;
-      }
+      },
+      this.langService.selectedLanguage // Pass the selected language
     );
 
     // Update speaking state when audio starts playing

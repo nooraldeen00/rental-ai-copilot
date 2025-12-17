@@ -1,6 +1,17 @@
 <form (ngSubmit)="submit()" #f="ngForm">
-  <label>Request</label>
-  <textarea [(ngModel)]="model.request_text" name="request_text" rows="3" style="width:100%;"></textarea>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <label>Request</label>
+    <button
+      type="button"
+      (click)="toggleSpeechRecognition()"
+      [class.listening]="isListening"
+      [disabled]="!speechSupported"
+      class="mic-btn"
+      [title]="!speechSupported ? 'Speech not supported in this browser' : (isListening ? 'Stop listening' : 'Speak your request')">
+      {{ isListening ? '🎤 Listening...' : '🎤 Speak' }}
+    </button>
+  </div>
+  <textarea [(ngModel)]="model.request_text" name="request_text" rows="3" style="width:100%;" [placeholder]="isListening ? 'Speak now...' : ''"></textarea>
 
   <div style="display:flex; gap:12px; margin-top:8px;">
     <div>

@@ -153,11 +153,13 @@ export class ApiService {
   }
 
   /**
-   * Convert text to speech using ElevenLabs Rachel voice.
+   * Convert text to speech using ElevenLabs.
    * Returns an Observable of the audio Blob.
+   * @param text The text to convert to speech
+   * @param language Optional language code (e.g., 'en-US', 'es-ES', 'ar-SA', 'ja-JP')
    */
-  textToSpeech(text: string): Observable<Blob> {
-    return this.http.post(`${BASE}/tts/speak`, { text }, {
+  textToSpeech(text: string, language?: string): Observable<Blob> {
+    return this.http.post(`${BASE}/tts/speak`, { text, language }, {
       responseType: 'blob',
     });
   }

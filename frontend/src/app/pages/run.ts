@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { ApiService, QuoteRequest, QuoteRunResponse } from '../services/api';
 import { TtsService } from '../services/tts.service';
+import { LanguageService } from '../services/language.service';
 
 type Tier = 'A' | 'B' | 'C';
 
@@ -48,7 +49,8 @@ export class RunPage {
 
   constructor(
     private api: ApiService,
-    private tts: TtsService
+    private tts: TtsService,
+    public langService: LanguageService
   ) {}
 
   /**
@@ -165,7 +167,8 @@ export class RunPage {
         // On error
         this.ttsError = error;
         this.isSpeaking = false;
-      }
+      },
+      this.langService.selectedLanguage // Pass the selected language
     );
 
     if (success) {
