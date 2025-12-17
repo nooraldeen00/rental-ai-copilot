@@ -136,7 +136,18 @@ export class TtsService {
       error: (err) => {
         console.error('TTS API error:', err);
         this._isLoading = false;
-        onError?.('Failed to generate speech. Please try again.');
+
+        // Provide more helpful error messages
+        const status = err.status;
+        if (status === 503) {
+          onError?.('Text-to-speech not configured. Please set ELEVENLABS_API_KEY.');
+        } else if (status === 504) {
+          onError?.('Text-to-speech service timeout. Please try again.');
+        } else if (status === 502) {
+          onError?.('Text-to-speech service unavailable. Please try again later.');
+        } else {
+          onError?.('Failed to generate speech. Please try again.');
+        }
       },
     });
 

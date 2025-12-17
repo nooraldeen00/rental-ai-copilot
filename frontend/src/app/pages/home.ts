@@ -130,8 +130,13 @@ export class HomeComponent {
     return;
     */
 
-    //  real backend
-    this.api.runQuote(this.form).subscribe({
+    //  real backend - include language for AI summary
+    const requestWithLanguage = {
+      ...this.form,
+      language: this.langService.selectedLanguage
+    };
+
+    this.api.runQuote(requestWithLanguage).subscribe({
       next: (res) => {
         console.log('API result:', res);
         this.result = res;

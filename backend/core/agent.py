@@ -237,7 +237,7 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
 
     Args:
         run_id: Unique ID for this quote run
-        payload: Request payload with message, dates, tier, etc.
+        payload: Request payload with message, dates, tier, language, etc.
 
     Returns:
         Quote dict with items, pricing, fees, and AI-generated notes
@@ -250,28 +250,45 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
                 "has_message": bool(payload.get("message")),
                 "has_items": bool(payload.get("items")),
                 "customer_tier": payload.get("customer_tier"),
+                "language": payload.get("language", "en-US"),
             }
         },
     )
 
     msg = (payload.get("message") or "").strip()
     tier = payload.get("customer_tier") or "C"
+    language = payload.get("language") or "en-US"
 
-    # Parse items from message using new intelligent parser
+    # Parse items from message using intelligent parser
     parsed_items = []
+    unmatched_items = []
     used_parser = False
     used_fallback = False
 
     if msg:
-        parsed_items = parse_items_from_message(msg)
+        all_parsed = parse_items_from_message(msg)
+        # Separate matched and unmatched items
+        parsed_items = [i for i in all_parsed if i.get("matched", True) and i.get("sku")]
+        unmatched_items = [i for i in all_parsed if not i.get("matched", True) or not i.get("sku")]
+
         if parsed_items:
             used_parser = True
             logger.info(
-                f"Parsed {len(parsed_items)} items from message for run {run_id}",
+                f"Parsed {len(parsed_items)} matched items from message for run {run_id}",
                 extra={"extra_fields": {
                     "run_id": run_id,
                     "message_preview": msg[:100],
-                    "parsed_items": [{"sku": i["sku"], "qty": i["quantity"], "confidence": i["confidence"]} for i in parsed_items]
+                    "parsed_items": [{"sku": i["sku"], "qty": i["quantity"], "confidence": i["confidence"]} for i in parsed_items],
+                    "unmatched_count": len(unmatched_items),
+                }},
+            )
+
+        if unmatched_items:
+            logger.warning(
+                f"Found {len(unmatched_items)} unmatched items for run {run_id}",
+                extra={"extra_fields": {
+                    "run_id": run_id,
+                    "unmatched_items": [{"name": i.get("unmatched_name"), "qty": i["quantity"]} for i in unmatched_items],
                 }},
             )
 
@@ -375,8 +392,61 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
     # Build AI-generated notes
     notes: List[str] = []
 
+    # Language-specific labels for notes
+    LANGUAGE_LABELS = {
+        "en-US": {
+            "parsing_note": "Intelligent parsing identified {count} equipment type(s) from your request.",
+            "fallback_note": "Sample quote generated. Please specify your equipment needs for an accurate estimate.",
+            "date_note": "Rental period: {days} day(s) based on your specified dates.",
+            "duration_note": "Estimated {days}-day rental based on your request.",
+            "unmatched_note": "Note: Could not match the following items: {items}. Please verify or contact us for assistance.",
+            "ai_fallback": "Our AI quote assistant is temporarily unavailable, but your quote has been calculated accurately.",
+            "ai_error": "Quote calculated successfully. Our team is ready to assist with any questions.",
+        },
+        "es-ES": {
+            "parsing_note": "El análisis inteligente identificó {count} tipo(s) de equipo de su solicitud.",
+            "fallback_note": "Cotización de muestra generada. Especifique sus necesidades de equipo para un presupuesto preciso.",
+            "date_note": "Período de alquiler: {days} día(s) según las fechas especificadas.",
+            "duration_note": "Alquiler estimado de {days} día(s) según su solicitud.",
+            "unmatched_note": "Nota: No se pudieron encontrar los siguientes artículos: {items}. Verifique o contáctenos para asistencia.",
+            "ai_fallback": "Nuestro asistente de cotización AI no está disponible temporalmente, pero su cotización se ha calculado con precisión.",
+            "ai_error": "Cotización calculada exitosamente. Nuestro equipo está listo para ayudarle con cualquier pregunta.",
+        },
+        "ar-SA": {
+            "parsing_note": "حدد التحليل الذكي {count} نوع(أنواع) من المعدات من طلبك.",
+            "fallback_note": "تم إنشاء عرض أسعار نموذجي. يرجى تحديد احتياجاتك من المعدات للحصول على تقدير دقيق.",
+            "date_note": "فترة الإيجار: {days} يوم(أيام) بناءً على التواريخ المحددة.",
+            "duration_note": "إيجار تقديري لمدة {days} يوم(أيام) بناءً على طلبك.",
+            "unmatched_note": "ملاحظة: لم نتمكن من مطابقة العناصر التالية: {items}. يرجى التحقق أو الاتصال بنا للمساعدة.",
+            "ai_fallback": "مساعد عرض الأسعار الذكي غير متاح مؤقتًا، ولكن تم حساب عرض الأسعار الخاص بك بدقة.",
+            "ai_error": "تم حساب عرض الأسعار بنجاح. فريقنا جاهز للمساعدة في أي أسئلة.",
+        },
+        "ja-JP": {
+            "parsing_note": "インテリジェント解析により、リクエストから{count}種類の機器を特定しました。",
+            "fallback_note": "サンプル見積もりが生成されました。正確な見積もりのために機器のニーズをご指定ください。",
+            "date_note": "レンタル期間：指定された日付に基づく{days}日間。",
+            "duration_note": "リクエストに基づく推定{days}日間のレンタル。",
+            "unmatched_note": "注：以下のアイテムをマッチングできませんでした：{items}。確認するか、サポートにお問い合わせください。",
+            "ai_fallback": "AI見積もりアシスタントは一時的に利用できませんが、見積もりは正確に計算されています。",
+            "ai_error": "見積もりは正常に計算されました。ご質問がございましたら、チームがお手伝いいたします。",
+        },
+    }
+
+    # Get language-specific labels (default to English)
+    lang_key = language if language in LANGUAGE_LABELS else "en-US"
+    labels = LANGUAGE_LABELS[lang_key]
+
+    # Language name mapping for AI prompt
+    LANGUAGE_NAMES = {
+        "en-US": "English",
+        "es-ES": "Spanish",
+        "ar-SA": "Arabic",
+        "ja-JP": "Japanese",
+    }
+    target_language = LANGUAGE_NAMES.get(language, "English")
+
     # Generate professional AI explanation
-    logger.debug(f"Generating AI summary for run {run_id}")
+    logger.debug(f"Generating AI summary for run {run_id} in {target_language}")
     try:
         user_msg = payload.get("message") or "Customer rental request."
 
@@ -388,13 +458,15 @@ def run_quote_loop(run_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
         tier_names = {"A": "Premium", "B": "Corporate", "C": "Standard"}
         tier_name = tier_names.get(tier, "Standard")
 
-        system_prompt = """You are a professional customer service representative for a premium rental equipment company.
+        system_prompt = f"""You are a professional customer service representative for a premium rental equipment company.
 
 Generate a concise, professional explanation of this quote that:
 1. Acknowledges what the customer requested
 2. Briefly explains the equipment provided
 3. Mentions tier discount if applicable (but keep it subtle and professional)
 4. Sounds warm, competent, and trustworthy - like a CSR from a high-end service company
+
+IMPORTANT: You MUST write your response entirely in {target_language}. Do not use English unless the target language is English.
 
 Keep it to 2-3 sentences maximum. Use professional but approachable language. Do not mention SKUs, internal codes, or technical calculation details."""
 
@@ -405,7 +477,9 @@ Rental duration: {days} day(s)
 Customer tier: {tier_name} (tier {tier})
 Discount applied: {quote['discount_pct']}%
 Subtotal before discount: ${quote['subtotal_before_discount']:.2f}
-Final total: ${quote['total']:.2f}"""
+Final total: ${quote['total']:.2f}
+
+Remember: Write your response in {target_language}."""
 
         ai_resp = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -414,14 +488,14 @@ Final total: ${quote['total']:.2f}"""
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.7,
-            max_tokens=150,
+            max_tokens=200,
         )
         explanation = ai_resp.choices[0].message.content.strip()
         notes.append(explanation)
 
         logger.info(
-            f"Generated AI summary for run {run_id}",
-            extra={"extra_fields": {"run_id": run_id, "summary_length": len(explanation)}},
+            f"Generated AI summary for run {run_id} in {target_language}",
+            extra={"extra_fields": {"run_id": run_id, "summary_length": len(explanation), "language": language}},
         )
     except OpenAIError as e:
         logger.error(
@@ -429,28 +503,33 @@ Final total: ${quote['total']:.2f}"""
             exc_info=True,
             extra={"extra_fields": {"run_id": run_id}},
         )
-        notes.append("Our AI quote assistant is temporarily unavailable, but your quote has been calculated accurately.")
+        notes.append(labels["ai_fallback"])
     except Exception as e:
         logger.error(
             f"Unexpected error generating AI summary for run {run_id}: {str(e)}",
             exc_info=True,
             extra={"extra_fields": {"run_id": run_id}},
         )
-        notes.append("Quote calculated successfully. Our team is ready to assist with any questions.")
+        notes.append(labels["ai_error"])
 
-    # Add technical notes for transparency (optional, can be removed if too verbose)
+    # Add technical notes for transparency (in selected language)
     if used_parser:
-        notes.append(f"Intelligent parsing identified {len(items)} equipment type(s) from your request.")
+        notes.append(labels["parsing_note"].format(count=len(items)))
     if used_fallback:
-        notes.append("Sample quote generated. Please specify your equipment needs for an accurate estimate.")
+        notes.append(labels["fallback_note"])
+
+    # Add unmatched items note if any
+    if unmatched_items:
+        unmatched_names = ", ".join([i.get("unmatched_name", "unknown") for i in unmatched_items])
+        notes.append(labels["unmatched_note"].format(items=unmatched_names))
 
     # Add duration note
     if payload.get("start_date") and payload.get("end_date"):
-        notes.append(f"Rental period: {days} day(s) based on your specified dates.")
+        notes.append(labels["date_note"].format(days=days))
     else:
         duration_hint = extract_duration_hint(msg) if msg else None
         if duration_hint:
-            notes.append(f"Estimated {days}-day rental based on your request.")
+            notes.append(labels["duration_note"].format(days=days))
 
     quote["notes"] = notes
 

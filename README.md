@@ -34,6 +34,7 @@ RentalAI Copilot deploys an autonomous AI agent that handles the entire workflow
 | Backend | FastAPI (Python 3.12) | API gateway & agent orchestration |
 | Database | MySQL 8.0 | Inventory, pricing, and quote history |
 | AI/LLM | OpenAI GPT-4o-mini | Natural language explanation generation |
+| TTS | ElevenLabs API | Professional voice synthesis (multi-language) |
 | Infrastructure | Docker Compose | Multi-container deployment |
 
 ---
@@ -112,9 +113,9 @@ Expected result:
         │  NLP Parsing Agent    │             │  Pricing Agent           │
         │  (item_parser.py)     │             │  (agent.py)              │
         │                       │             │                          │
-        │  • 100+ synonyms      │             │  • Tier discount logic   │
+        │  • 200+ synonyms      │             │  • Tier discount logic   │
         │  • Fuzzy matching     │             │  • Fee calculation       │
-        │  • Word→number parse  │             │  • Tax computation       │
+        │  • Size normalization │             │  • Tax computation       │
         └───────────┬───────────┘             └──────────┬───────────────┘
                     │                                     │
                     └─────────────┬───────────────────────┘
@@ -144,6 +145,49 @@ Unlike simple chatbots, RentalAI uses a **deterministic multi-stage pipeline**:
 4. **Explanation Generation** — GPT-4 produces a professional 2-3 sentence summary
 
 **Why this matters**: Pricing is *deterministic* (from the database), not hallucinated by the LLM.
+
+---
+
+## Multi-Language Support
+
+RentalAI supports **4 languages** for both AI-generated summaries and text-to-speech:
+
+| Language | Code | AI Summary | TTS Voice |
+|----------|------|------------|-----------|
+| English | en-US | Native GPT-4 | Rachel (ElevenLabs) |
+| Spanish | es-ES | Native GPT-4 | Domi (ElevenLabs) |
+| Arabic | ar-SA | Native GPT-4 | Yosef (ElevenLabs) |
+| Japanese | ja-JP | Native GPT-4 | Alice (ElevenLabs) |
+
+When you switch languages in the UI:
+- The AI explanation is **generated natively** in the target language (not translated)
+- Text-to-speech uses a **native speaker voice** for natural pronunciation
+- Technical notes remain consistent across languages
+
+---
+
+## Intelligent Item Parsing
+
+The NLP parser handles diverse input formats with **200+ item synonyms**:
+
+**Quantity Formats:**
+- Numeric: `50 chairs`, `100 chairs`
+- Word numbers: `ten speakers`, `twenty tables`
+- Compound: `a dozen tables`, `half dozen chairs`
+- Prefix format: `5x tables`, `qty 10 chairs`
+- Natural phrases: `Need 10 speakers`, `Get me 5 tents`
+
+**Size Specifications:**
+- `60-inch round tables` → TABLE-60RND
+- `8ft rectangular tables` → TABLE-8FT-RECT
+- `60" round tables` → TABLE-60RND
+- `20x20 tent` → TENT-20x20
+
+**Duration Detection:**
+- `weekend event` → 3 days
+- `Friday through Sunday` → 3 days
+- `for a week` → 7 days
+- `5 day rental` → 5 days
 
 ---
 
@@ -191,11 +235,16 @@ All configuration via `.env` file:
 # Required
 OPENAI_API_KEY=sk-proj-...
 
+# Optional: ElevenLabs TTS (for "Read Summary" feature)
+ELEVENLABS_API_KEY=your-elevenlabs-api-key-here
+
 # Optional (auto-configured in Docker)
 DATABASE_URL=mysql+pymysql://por:por@db:3306/por
 LLM_MODEL=gpt-4o-mini          # or gpt-4o for higher quality
 LOG_LEVEL=INFO
 ```
+
+**Note**: If `ELEVENLABS_API_KEY` is not set, the TTS feature will return a 503 error with a helpful message.
 
 ---
 
@@ -245,6 +294,8 @@ See [`docs/API.md`](docs/API.md) for complete endpoint documentation.
 | `GET /quote/runs/{id}/pdf` | GET | Download quote as PDF |
 | `POST /quote/feedback` | POST | Submit rating (triggers goodwill discount if low) |
 | `GET /inventory` | GET | List all inventory items |
+| `POST /tts/speak` | POST | Convert text to speech (ElevenLabs) |
+| `GET /tts/status` | GET | Check TTS service availability |
 | `GET /health` | GET | Health check |
 
 ---
@@ -256,7 +307,7 @@ rental-ai-copilot/
 ├── backend/
 │   ├── core/
 │   │   ├── agent.py              # Main quote orchestration
-│   │   ├── item_parser.py        # NLP parsing (100+ synonyms)
+│   │   ├── item_parser.py        # NLP parsing (200+ synonyms)
 │   │   ├── pdf_generator.py      # Quote PDF export
 │   │   ├── logging_config.py     # Structured JSON logging
 │   │   └── exceptions.py         # Custom error handling
@@ -326,15 +377,17 @@ This demo architecture is designed to integrate with enterprise rental platforms
 I built RentalAI Copilot, an autonomous AI agent system for equipment rental companies. The problem: CSRs spend 5-10 minutes manually generating quotes from vague requests like "need some chairs for an event."
 
 **My solution**: A multi-stage agent architecture that:
-1. Parses natural language using fuzzy matching + 100+ synonyms
+1. Parses natural language using fuzzy matching + 200+ synonyms with size normalization
 2. Retrieves pricing from MySQL with business logic (tier discounts, fees)
 3. Calculates quotes *deterministically* (no hallucinations)
-4. Generates professional explanations with GPT-4 (constrained prompts)
+4. Generates professional explanations with GPT-4 in **4 languages** (en, es, ar, ja)
+5. Provides natural TTS output using ElevenLabs native-speaker voices
 
 **Key decisions**:
 - **Hybrid architecture**: Symbolic pricing + neural NLP (best of both worlds)
 - **Multi-stage reasoning**: Not a single LLM call — observable, debuggable
-- **Graceful degradation**: Static fallback if OpenAI is unavailable
+- **Native multi-language**: AI generates in target language, not translated
+- **Graceful degradation**: Static fallback if OpenAI/ElevenLabs unavailable
 - **Production patterns**: Structured logging, request tracing, Docker deployment
 
 This demonstrates I can build *real AI systems*, not just prompt wrappers.

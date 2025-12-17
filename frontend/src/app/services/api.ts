@@ -14,6 +14,7 @@ export type QuoteRequest = {
   start_date?: string;
   end_date?: string;
   seed?: number;
+  language?: string; // Language code for AI summary (e.g., 'en-US', 'es-ES', 'ar-SA', 'ja-JP')
 };
 
 export type QuoteItem = {
@@ -90,6 +91,7 @@ export class ApiService {
     start_date: req.start_date,
     end_date: req.end_date,
     seed: req.seed,
+    language: req.language, // Pass language for AI summary generation
   };
 
   const fixDate = (s?: string) => {
@@ -109,6 +111,7 @@ export class ApiService {
   }
 
   if (!payload.zip) delete payload.zip;
+  if (!payload.language) delete payload.language;
   Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
   return this.http.post<QuoteRunResponse>(`${BASE}/quote/run`, payload);
