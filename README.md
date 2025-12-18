@@ -401,3 +401,36 @@ MIT License
 ---
 
 **Built by Nooraldeen** • Full-Stack + AI/ML Engineer
+
+---
+
+flowchart TB
+    %% Top layer
+    A[Angular Frontend]
+
+    B[FastAPI Gateway<br/>(Agent Controller)]
+
+    A -->|HTTP POST<br/>/quote/run| B
+
+    %% Middle agents
+    C[NLP Parsing Agent<br/>(item_parser.py)<br/><br/>• 200+ synonyms<br/>• Fuzzy matching<br/>• Size normalization]
+
+    D[Pricing Agent<br/>(agent.py)<br/><br/>• Tier discount logic<br/>• Fee calculation<br/>• Tax computation]
+
+    B --> C
+    B --> D
+
+    %% Knowledge base
+    E[MySQL Knowledge Base<br/><br/>• 30 inventory SKUs<br/>• Pricing policies<br/>• Customer tiers]
+
+    C --> E
+    D --> E
+
+    %% Bottom layer
+    F[Explanation Agent<br/>(OpenAI GPT-4o)]
+    G[Structured Logging<br/>(JSON traces)]
+
+    E --> F
+    E --> G
+
+---
