@@ -158,6 +158,7 @@ export class TtsService {
 
   /**
    * Fallback: Speak using browser's built-in Speech Synthesis API.
+   * More robust implementation with better voice loading and language matching.
    */
   private speakWithBrowserTts(
     text: string,
@@ -165,7 +166,7 @@ export class TtsService {
     onError?: (error: string) => void,
     language?: string
   ): void {
-    console.log('Using browser TTS fallback...');
+    console.log('Using browser TTS fallback for language:', language);
 
     if (!this.browserSpeechSynthesis) {
       console.error('Browser speech synthesis not available');
@@ -173,74 +174,106 @@ export class TtsService {
       return;
     }
 
+    // Language code mappings for better voice matching
+    const languageMap: Record<string, string[]> = {
+      'en-US': ['en-US', 'en-GB', 'en'],
+      'es-ES': ['es-ES', 'es-MX', 'es-US', 'es'],
+      'ar-SA': ['ar-SA', 'ar-EG', 'ar'],
+      'ja-JP': ['ja-JP', 'ja'],
+    };
+
+    const findBestVoice = (voices: SpeechSynthesisVoice[], targetLang: string): SpeechSynthesisVoice | null => {
+      const langPreferences = languageMap[targetLang] || [targetLang, targetLang.split('-')[0]];
+
+      // Try each language preference in order
+      for (const lang of langPreferences) {
+        // Exact match first
+        const exactMatch = voices.find(v => v.lang.toLowerCase() === lang.toLowerCase());
+        if (exactMatch) return exactMatch;
+
+        // Partial match (starts with)
+        const partialMatch = voices.find(v => v.lang.toLowerCase().startsWith(lang.toLowerCase().split('-')[0]));
+        if (partialMatch) return partialMatch;
+      }
+
+      // Fallback to English
+      const englishVoice = voices.find(v => v.lang.toLowerCase().startsWith('en'));
+      if (englishVoice) return englishVoice;
+
+      // Last resort: first available voice
+      return voices.length > 0 ? voices[0] : null;
+    };
+
     const startSpeaking = () => {
       try {
-        // Cancel any ongoing speech
+        // Cancel any ongoing speech first
         this.browserSpeechSynthesis!.cancel();
 
-        // Create utterance
-        const utterance = new SpeechSynthesisUtterance(text);
-        this.currentUtterance = utterance;
+        // Small delay after cancel to ensure clean state
+        setTimeout(() => {
+          try {
+            // Create utterance
+            const utterance = new SpeechSynthesisUtterance(text);
+            this.currentUtterance = utterance;
 
-        // Set language
-        utterance.lang = language || 'en-US';
+            // Set language
+            const targetLang = language || 'en-US';
+            utterance.lang = targetLang;
 
-        // Configure voice settings
-        utterance.rate = 0.95;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
+            // Configure voice settings
+            utterance.rate = 0.95;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
 
-        // Try to find a good voice
-        const voices = this.browserSpeechSynthesis!.getVoices();
-        console.log(`Available voices: ${voices.length}`);
+            // Find best matching voice
+            const voices = this.browserSpeechSynthesis!.getVoices();
+            console.log(`Available voices: ${voices.length}`);
 
-        if (voices.length > 0) {
-          const langCode = (language || 'en-US').split('-')[0];
-          // Prefer voices that match the language
-          let matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(langCode.toLowerCase()));
-          // Fallback to any English voice
-          if (!matchingVoice) {
-            matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith('en'));
-          }
-          // Fallback to first available voice
-          if (!matchingVoice) {
-            matchingVoice = voices[0];
-          }
-          if (matchingVoice) {
-            utterance.voice = matchingVoice;
-            console.log(`Using voice: ${matchingVoice.name} (${matchingVoice.lang})`);
-          }
-        }
+            const selectedVoice = findBestVoice(voices, targetLang);
+            if (selectedVoice) {
+              utterance.voice = selectedVoice;
+              console.log(`Using voice: ${selectedVoice.name} (${selectedVoice.lang}) for target language: ${targetLang}`);
+            } else {
+              console.warn('No suitable voice found, using browser default');
+            }
 
-        utterance.onstart = () => {
-          console.log('Browser TTS started');
-          this._isSpeaking = true;
-          this._isLoading = false;
-        };
+            utterance.onstart = () => {
+              console.log('Browser TTS started');
+              this._isSpeaking = true;
+              this._isLoading = false;
+            };
 
-        utterance.onend = () => {
-          console.log('Browser TTS ended');
-          this._isSpeaking = false;
-          this.currentUtterance = null;
-          onEnd?.();
-        };
+            utterance.onend = () => {
+              console.log('Browser TTS ended');
+              this._isSpeaking = false;
+              this.currentUtterance = null;
+              onEnd?.();
+            };
 
-        utterance.onerror = (event) => {
-          console.error('Browser TTS error:', event.error);
-          this._isSpeaking = false;
-          this._isLoading = false;
-          this.currentUtterance = null;
-          // Don't show error for 'canceled' - that's intentional
-          if (event.error !== 'canceled') {
+            utterance.onerror = (event) => {
+              console.error('Browser TTS error:', event.error);
+              this._isSpeaking = false;
+              this._isLoading = false;
+              this.currentUtterance = null;
+              // Don't show error for 'canceled' or 'interrupted' - those are intentional
+              if (event.error !== 'canceled' && event.error !== 'interrupted') {
+                onError?.('Speech synthesis failed. Please try again.');
+              }
+            };
+
+            // Start speaking
+            this._isLoading = false;
+            this._isSpeaking = true;
+            this.browserSpeechSynthesis!.speak(utterance);
+            console.log('Browser TTS speak() called');
+
+          } catch (err) {
+            console.error('Browser TTS exception in delayed start:', err);
+            this._isLoading = false;
+            this._isSpeaking = false;
             onError?.('Speech synthesis failed. Please try again.');
           }
-        };
-
-        // Start speaking
-        this._isLoading = false;
-        this._isSpeaking = true;
-        this.browserSpeechSynthesis!.speak(utterance);
-        console.log('Browser TTS speak() called');
+        }, 50);
 
       } catch (err) {
         console.error('Browser TTS exception:', err);
@@ -250,24 +283,35 @@ export class TtsService {
       }
     };
 
-    // Voices may not be loaded immediately - wait for them
+    // Voices may not be loaded immediately - use multiple strategies
     const voices = this.browserSpeechSynthesis.getVoices();
     if (voices.length > 0) {
       startSpeaking();
     } else {
-      // Wait for voices to load
+      // Strategy 1: Wait for voiceschanged event
       console.log('Waiting for voices to load...');
-      this.browserSpeechSynthesis.onvoiceschanged = () => {
-        console.log('Voices loaded');
+      const voicesChangedHandler = () => {
+        console.log('Voices loaded via event');
+        this.browserSpeechSynthesis!.onvoiceschanged = null;
         startSpeaking();
       };
-      // Also try after a short delay as backup
-      setTimeout(() => {
-        if (!this._isSpeaking && !this.currentUtterance) {
-          console.log('Starting speech after timeout');
-          startSpeaking();
+      this.browserSpeechSynthesis.onvoiceschanged = voicesChangedHandler;
+
+      // Strategy 2: Poll for voices (some browsers don't fire voiceschanged)
+      let attempts = 0;
+      const maxAttempts = 10;
+      const pollInterval = setInterval(() => {
+        attempts++;
+        const loadedVoices = this.browserSpeechSynthesis!.getVoices();
+        if (loadedVoices.length > 0 || attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          this.browserSpeechSynthesis!.onvoiceschanged = null;
+          if (!this._isSpeaking && !this.currentUtterance) {
+            console.log(`Starting speech after ${attempts} polling attempts, voices: ${loadedVoices.length}`);
+            startSpeaking();
+          }
         }
-      }, 100);
+      }, 50);
     }
   }
 
@@ -331,16 +375,24 @@ export class TtsService {
     if (!notes || notes.length === 0) return '';
 
     // Filter out technical notes and focus on the AI summary
+    // The first note is typically the AI-generated explanation which we want to keep
     const humanNotes = notes.filter(note => {
       const lower = note.toLowerCase();
-      // Skip technical parsing notes
+      // Skip technical parsing/system notes (be specific to avoid filtering AI summaries)
       return !lower.includes('intelligent parsing') &&
+             !lower.includes('el análisis inteligente identificó') &&  // Spanish parsing note
+             !lower.includes('حدد التحليل الذكي') &&  // Arabic parsing note
+             !lower.includes('インテリジェント解析') &&  // Japanese parsing note
              !lower.includes('rental period:') &&
-             !lower.includes('identified') &&
-             !lower.includes('based on your specified');
+             !lower.includes('período de alquiler:') &&  // Spanish
+             !lower.includes('فترة الإيجار:') &&  // Arabic
+             !lower.includes('レンタル期間') &&  // Japanese
+             !lower.includes('based on your specified') &&
+             !lower.includes('sample quote generated') &&
+             !lower.includes('could not match the following');
     });
 
-    // If we filtered everything, use the first note
+    // If we filtered everything, use the first note (which is the AI summary)
     const speakableNotes = humanNotes.length > 0 ? humanNotes : [notes[0]];
 
     return speakableNotes.join('. ');

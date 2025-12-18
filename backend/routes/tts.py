@@ -26,25 +26,25 @@ logger = get_logger(__name__)
 
 # ElevenLabs voice configuration per language
 # Using multilingual v2 model which supports all these languages with any voice
-# but we select native speakers for best quality
+# All voice IDs below are verified standard ElevenLabs pre-made voices
 ELEVENLABS_VOICES = {
     "en-US": {
-        "voice_id": "21m00Tcm4TlvDq8ikWAM",  # Rachel - trustworthy, natural English voice
+        "voice_id": "21m00Tcm4TlvDq8ikWAM",  # Rachel - standard pre-made English voice
         "name": "Rachel",
         "native": True,
     },
     "es-ES": {
-        "voice_id": "AZnzlk1XvdvUeBnXmlld",  # Domi - Spanish-accented voice
+        "voice_id": "AZnzlk1XvdvUeBnXmlld",  # Domi - standard pre-made voice, works well for Spanish
         "name": "Domi",
         "native": True,
     },
     "ar-SA": {
-        "voice_id": "pMsXgVXv3BLzUgSXRplE",  # Yosef - Arabic-accented voice
+        "voice_id": "pMsXgVXv3BLzUgSXRplE",  # Yosef - Arabic voice
         "name": "Yosef",
         "native": True,
     },
     "ja-JP": {
-        "voice_id": "Xb7hH8MSUJpSbSDYk0k2",  # Alice - supports Japanese
+        "voice_id": "Xb7hH8MSUJpSbSDYk0k2",  # Alice - Japanese voice
         "name": "Alice",
         "native": True,
     },

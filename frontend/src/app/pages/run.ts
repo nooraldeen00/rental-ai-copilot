@@ -81,6 +81,7 @@ export class RunPage {
       start_date: this.form.start_date,
       end_date: this.form.end_date,
       seed: this.form.seed ?? undefined,
+      language: this.langService.selectedLanguage, // Pass selected language for AI summary
     };
 
     this.api.runQuote(payload).subscribe({
@@ -140,6 +141,8 @@ export class RunPage {
    * If already speaking, stops and restarts from the beginning.
    */
   onPlaySummary() {
+    console.log('Play Summary clicked, notes:', this.result?.quote?.notes);
+
     if (!this.result?.quote?.notes?.length) {
       this.ttsError = 'No AI notes available to read.';
       return;
@@ -156,21 +159,30 @@ export class RunPage {
 
     // Convert notes array to speakable text
     const text = this.tts.notesToSpeakableText(this.result.quote.notes);
+    console.log('Speakable text:', text);
+
+    if (!text || !text.trim()) {
+      this.ttsError = 'No speakable content found in notes.';
+      return;
+    }
 
     const success = this.tts.speak(
       text,
       () => {
         // On end
+        console.log('TTS ended');
         this.isSpeaking = false;
       },
       (error) => {
         // On error
+        console.error('TTS error:', error);
         this.ttsError = error;
         this.isSpeaking = false;
       },
       this.langService.selectedLanguage // Pass the selected language
     );
 
+    console.log('TTS speak() returned:', success);
     if (success) {
       this.isSpeaking = true;
     }
