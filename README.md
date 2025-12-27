@@ -1,3 +1,6 @@
+
+<img width="300" height="300" alt="rentalAi-logo" src="https://github.com/user-attachments/assets/90019441-56f6-457e-bada-a8f4ed67a1ee" />
+
 # RentalAI Copilot
 
 **Autonomous AI Agent for Equipment Rental Quote Generation**
