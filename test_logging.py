@@ -30,7 +30,7 @@ print()
 setup_logging(log_level="INFO", log_file="logs/test_rentalai.log", enable_json=True)
 logger = get_logger(__name__)
 
-print("✅ Logging system initialized")
+print(" Logging system initialized")
 print()
 
 # Test basic logging
@@ -39,7 +39,7 @@ logger.debug("This is a DEBUG message (should not appear with INFO level)")
 logger.info("This is an INFO message")
 logger.warning("This is a WARNING message")
 logger.error("This is an ERROR message")
-print("✅ Basic logging works")
+print(" Basic logging works")
 print()
 
 # Test logging with extra fields
@@ -55,7 +55,7 @@ logger.info(
         }
     },
 )
-print("✅ Extra fields logging works")
+print(" Extra fields logging works")
 print()
 
 # Test custom exceptions
@@ -73,7 +73,7 @@ for name, exc in exceptions_to_test:
         raise exc
     except Exception as e:
         logger.error(f"Caught {name}: {str(e)}", exc_info=False)
-        print(f"✅ {name} - status_code: {e.status_code}, error_code: {e.error_code}")
+        print(f" {name} - status_code: {e.status_code}, error_code: {e.error_code}")
 
 print()
 
@@ -83,13 +83,13 @@ try:
     raise ValueError("This is a test exception with stack trace")
 except Exception as e:
     logger.error("Exception with stack trace", exc_info=True)
-    print("✅ Exception with stack trace logged")
+    print(" Exception with stack trace logged")
 
 print()
 
 # Summary
 print("=" * 60)
-print("All Tests Passed! ✅")
+print("All Tests Passed! ")
 print("=" * 60)
 print()
 print("Log files created:")
