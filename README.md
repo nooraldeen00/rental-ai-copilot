@@ -403,5 +403,6 @@ MIT License
 
 ---
 
-**Built by Nooraldeen** • Full-Stack + AI/ML Engineer
+**Designed, engineered, and shipped by Nooraldeen Alsmady**  
+Full-Stack • AI/ML Systems Engineer
 
